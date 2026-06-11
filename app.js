@@ -802,7 +802,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
                 <React.Fragment>
                   <span style={{ width: 34, height: 34, borderRadius: 8, background: w.accent, color: "#101013", fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
                   <span style={{ flex: 1, textAlign: "left" }}>
-                    <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{w.name}</span>
+                    <span style={{ display: "block", fontWeight: 600, fontSize: 15, color: "#f0f0f2" }}>{w.name}</span>
                     <span style={{ display: "block", fontSize: 12, color: "#7a7a82" }}>{isToday ? "Hoje" : ""} {w.items.length} exercícios</span>
                   </span>
                   {p && p.setsDone > 0 && p.done < p.total && <span style={{ fontSize: 11, color: w.accent, fontWeight: 700 }}>{p.done}/{p.total}</span>}
