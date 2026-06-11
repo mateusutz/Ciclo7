@@ -7,6 +7,11 @@ const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sáb
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // exibe a semana começando na segunda
 const PALETTE = ["#E8843C", "#4C9BD6", "#C77DD6", "#5EB87A", "#E3C84C", "#E36A5A"];
 const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const ytId = (url) => {
+  if (!url) return null;
+  const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+};
 
 // ============================================================
 // DADOS PADRÃO DO PROGRAMA (seed inicial)
@@ -181,6 +186,7 @@ const Icon = {
   Book: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>),
   Moon: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>),
   Calendar: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>),
+  Play: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" {...p}><polygon points="6 4 20 12 6 20" /></svg>),
 };
 
 // ============================================================
@@ -232,6 +238,32 @@ function Ring({ pct, accent, size = 132, stroke = 11 }) {
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#26262b" strokeWidth={stroke} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={accent} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1)" }} />
     </svg>
+  );
+}
+
+// ============================================================
+// VIDEO MODAL (demonstração do exercício)
+// ============================================================
+function VideoModal({ videoId, title, onClose }) {
+  return (
+    <div style={{ ...overlay, zIndex: 90 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: "#f0f0f2", paddingRight: 8, lineHeight: 1.3 }}>{title}</span>
+          <button onClick={onClose} style={iconBtn}><Icon.X /></button>
+        </div>
+        <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 14, overflow: "hidden", background: "#000", border: "1px solid #26262b" }}>
+          <iframe
+            src={"https://www.youtube-nocookie.com/embed/" + videoId}
+            title={title}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <div style={{ textAlign: "center", color: "#7a7a82", fontSize: 12, marginTop: 10 }}>O vídeo precisa de internet pra carregar.</div>
+      </div>
+    </div>
   );
 }
 
@@ -682,7 +714,7 @@ function SessionDetail({ sessionKey, workout, lib, progress, onToggle, onBack, o
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {workout.items.map((it, idx) => {
             const base = lib[it.exId] || { name: "Exercício removido da biblioteca", warn: "", note: "" };
-            const ex = { id: it.exId, name: base.name, warn: base.warn, note: base.note, sets: it.sets, reps: it.reps, rest: it.rest };
+            const ex = { id: it.exId, name: base.name, warn: base.warn, note: base.note, video: base.video || "", sets: it.sets, reps: it.reps, rest: it.rest };
             return (
               <ExerciseCard
                 key={it.exId + "-" + idx}
@@ -717,6 +749,8 @@ function SessionDetail({ sessionKey, workout, lib, progress, onToggle, onBack, o
 
 function ExerciseCard({ ex, idx, accent, checked, onToggle, onTimer, logSet, last }) {
   const [open, setOpen] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const vid = ytId(ex.video);
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
 
@@ -753,6 +787,11 @@ function ExerciseCard({ ex, idx, accent, checked, onToggle, onTimer, logSet, las
             <button onClick={onTimer} style={{ display: "flex", alignItems: "center", gap: 5, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 7, padding: "4px 9px", color: "#b0b0b8", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               <Icon.Timer /> {ex.rest}
             </button>
+            {vid ? (
+              <button onClick={() => setShowVideo(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 7, padding: "4px 9px", color: accent, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                <Icon.Play /> Vídeo
+              </button>
+            ) : null}
           </div>
 
           {(ex.warn || ex.note) ? (
@@ -781,6 +820,8 @@ function ExerciseCard({ ex, idx, accent, checked, onToggle, onTimer, logSet, las
               <button onClick={save} style={{ ...primaryBtn(accent), padding: "9px 16px", fontSize: 13 }}>Salvar</button>
             </div>
           )}
+
+          {showVideo && vid ? <VideoModal videoId={vid} title={ex.name} onClose={() => setShowVideo(false)} /> : null}
         </div>
       </div>
     </div>
@@ -997,7 +1038,7 @@ function ExercisePicker({ lib, existing, onPick, onCreateNew, onClose }) {
 // ============================================================
 function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
   const isNew = !initial;
-  const [draft, setDraft] = useState(() => initial ? { ...initial } : { id: uid("ex_"), name: "", sets: 3, reps: "10-12", rest: "60s", warn: "", note: "" });
+  const [draft, setDraft] = useState(() => initial ? { ...initial } : { id: uid("ex_"), name: "", sets: 3, reps: "10-12", rest: "60s", warn: "", note: "", video: "" });
   const [confirmDel, setConfirmDel] = useState(false);
   const [error, setError] = useState("");
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
@@ -1033,6 +1074,12 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
               <label style={labelStyle}>Descanso</label>
               <input value={draft.rest} onChange={(e) => set({ rest: e.target.value })} placeholder="60s" style={{ ...textInput, textAlign: "center" }} />
             </div>
+          </div>
+
+          <label style={labelStyle}>Vídeo de demonstração (opcional)</label>
+          <input value={draft.video || ""} onChange={(e) => set({ video: e.target.value })} placeholder="Cole o link do YouTube" style={{ ...textInput, marginBottom: 4 }} />
+          <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 12, minHeight: 15, color: draft.video ? (ytId(draft.video) ? "#5EB87A" : "#e36a5a") : "transparent" }}>
+            {draft.video ? (ytId(draft.video) ? "✓ Vídeo reconhecido" : "Link não reconhecido — cole um link do YouTube") : "."}
           </div>
 
           <label style={labelStyle}>Dica de execução (opcional)</label>
@@ -1098,6 +1145,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontWeight: 600, fontSize: 14, color: "#f0f0f2", lineHeight: 1.3 }}>{ex.name}</span>
                   {ex.warn ? <span style={{ color: "#E8843C", display: "flex", flexShrink: 0 }}><Icon.Warn width={13} height={13} /></span> : null}
+                  {ytId(ex.video) ? <span style={{ color: "#5EB87A", display: "flex", flexShrink: 0 }}><Icon.Play width={12} height={12} /></span> : null}
                 </span>
                 <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 3 }}>
                   {ex.sets}× {ex.reps} · {ex.rest}{uses > 0 ? ` · em ${uses} treino${uses > 1 ? "s" : ""}` : ""}
