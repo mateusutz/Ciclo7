@@ -1,10 +1,10 @@
-const { useState, useEffect, useMemo, useCallback } = React;
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 // ============================================================
-// CONSTANTES
+// CONSTANTES E HELPERS
 // ============================================================
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // exibe a semana começando na segunda
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const PALETTE = ["#E8843C", "#4C9BD6", "#C77DD6", "#5EB87A", "#E3C84C", "#E36A5A"];
 const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const ytId = (url) => {
@@ -12,6 +12,46 @@ const ytId = (url) => {
   const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 };
+const fmtClock = (s) => {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+  return h > 0 ? h + ":" + String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0") : m + ":" + String(sec).padStart(2, "0");
+};
+const fmtDur = (s) => {
+  if (s == null) return "";
+  const m = Math.round(s / 60);
+  if (m < 1) return "<1 min";
+  if (m < 60) return m + " min";
+  const h = Math.floor(m / 60), mm = m % 60;
+  return h + "h" + String(mm).padStart(2, "0");
+};
+const weekStartMs = (d) => {
+  const dt = new Date(d);
+  const day = (dt.getDay() + 6) % 7;
+  dt.setHours(0, 0, 0, 0);
+  dt.setDate(dt.getDate() - day);
+  return dt.getTime();
+};
+function beep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; o.type = "sine";
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    o.start(); o.stop(ctx.currentTime + 0.55);
+    setTimeout(() => { try { ctx.close(); } catch (e) {} }, 800);
+  } catch (e) {}
+}
+function notifyRestDone() {
+  try { if (navigator.vibrate) navigator.vibrate([300, 120, 300]); } catch (e) {}
+  beep();
+  setTimeout(beep, 650);
+}
 
 // ============================================================
 // DADOS PADRÃO DO PROGRAMA (seed inicial)
@@ -118,7 +158,6 @@ const DEFAULT_SESSIONS = {
   },
 };
 
-// Deriva biblioteca e treinos a partir do programa padrão
 const DEFAULT_LIBRARY = {};
 const DEFAULT_WORKOUTS = {};
 Object.entries(DEFAULT_SESSIONS).forEach(([key, s]) => {
@@ -131,10 +170,9 @@ Object.entries(DEFAULT_SESSIONS).forEach(([key, s]) => {
     items: s.exercises.map((e) => ({ exId: e.id, sets: e.sets, reps: e.reps, rest: e.rest })),
   };
   s.exercises.forEach((e) => {
-    DEFAULT_LIBRARY[e.id] = { id: e.id, name: e.name, sets: e.sets, reps: e.reps, rest: e.rest, warn: e.warn || "", note: e.note || "" };
+    DEFAULT_LIBRARY[e.id] = { id: e.id, name: e.name, sets: e.sets, reps: e.reps, rest: e.rest, warn: e.warn || "", note: e.note || "", video: "" };
   });
 });
-// Agenda padrão: seg=A1, ter=B1, qua=C1, qui=A2, sex=B2, sáb=D, dom=C2
 const DEFAULT_SCHEDULE = { 0: "C2", 1: "A1", 2: "B1", 3: "C1", 4: "A2", 5: "B2", 6: "D" };
 
 // ============================================================
@@ -147,6 +185,7 @@ const KEY_LIBRARY = "library:v1";
 const KEY_WORKOUTS = "workouts:v1";
 const KEY_SCHEDULE = "schedule:v1";
 const KEY_HISTORY = "history:v1";
+const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY];
 
 async function storeGet(key, fallback) {
   try {
@@ -162,6 +201,27 @@ async function storeSet(key, value) {
   } catch (e) {
     console.error("storage set failed", e);
   }
+}
+
+function exportAllData() {
+  const data = {};
+  ALL_KEYS.forEach((k) => {
+    const raw = localStorage.getItem(NS + k);
+    if (raw != null) {
+      try { data[k] = JSON.parse(raw); } catch (e) {}
+    }
+  });
+  const payload = { app: "ciclo7", version: 4, exportedAt: new Date().toISOString(), data };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const d = new Date();
+  a.href = url;
+  a.download = "ciclo7-backup-" + d.toISOString().slice(0, 10) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 // ============================================================
@@ -187,62 +247,22 @@ const Icon = {
   Moon: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>),
   Calendar: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>),
   Play: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" {...p}><polygon points="6 4 20 12 6 20" /></svg>),
+  Swap: (p) => (<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M16 3h5v5" /><path d="M21 3l-7 7" /><path d="M8 21H3v-5" /><path d="M3 21l7-7" /></svg>),
+  Download: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>),
+  Upload: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>),
 };
 
 // ============================================================
-// REST TIMER
+// HELPERS DE TREINO
 // ============================================================
 function parseRest(rest) {
   const m = String(rest).match(/(\d+)/);
   return m ? parseInt(m[1], 10) : 60;
 }
-
-function RestTimer({ seconds, accent, onClose }) {
-  const [left, setLeft] = useState(seconds);
-  const [running, setRunning] = useState(true);
-  useEffect(() => {
-    if (!running) return;
-    if (left <= 0) { setRunning(false); return; }
-    const t = setInterval(() => setLeft((l) => l - 1), 1000);
-    return () => clearInterval(t);
-  }, [running, left]);
-  const mm = Math.floor(Math.max(left, 0) / 60);
-  const ss = Math.max(left, 0) % 60;
-  const done = left <= 0;
-  return (
-    <div style={overlay} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", padding: 32 }}>
-        <div style={{ fontSize: 13, letterSpacing: 2, textTransform: "uppercase", color: "#7a7a82", marginBottom: 18, fontWeight: 700 }}>Descanso</div>
-        <div style={{ fontSize: 92, fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1, color: done ? accent : "#f4f4f5", fontFamily: "'Barlow Condensed', sans-serif" }}>
-          {mm}:{String(ss).padStart(2, "0")}
-        </div>
-        <div style={{ fontSize: 15, color: done ? accent : "#7a7a82", marginTop: 8, fontWeight: 600, minHeight: 22 }}>{done ? "Bora pra próxima série" : ""}</div>
-        <div style={{ display: "flex", gap: 12, marginTop: 28, justifyContent: "center" }}>
-          {!done && <button onClick={() => setRunning((r) => !r)} style={pillBtn(accent, false)}>{running ? "Pausar" : "Retomar"}</button>}
-          <button onClick={onClose} style={pillBtn(accent, true)}>{done ? "Fechar" : "Pular"}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+const plannedSets = (it) => parseInt(it.sets, 10) || 0;
 
 // ============================================================
-// COMPLETION RING
-// ============================================================
-function Ring({ pct, accent, size = 132, stroke = 11 }) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const off = c * (1 - pct);
-  return (
-    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#26262b" strokeWidth={stroke} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={accent} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1)" }} />
-    </svg>
-  );
-}
-
-// ============================================================
-// VIDEO MODAL (demonstração do exercício)
+// VIDEO MODAL
 // ============================================================
 function VideoModal({ videoId, title, onClose }) {
   return (
@@ -268,6 +288,63 @@ function VideoModal({ videoId, title, onClose }) {
 }
 
 // ============================================================
+// REST TIMER (modal + chip flutuante, controlados pelo App)
+// ============================================================
+function RestTimerModal({ left, total, accent, finished, onCancel, onMinimize, onExtend }) {
+  const mm = Math.floor(Math.max(left, 0) / 60);
+  const ss = Math.max(left, 0) % 60;
+  return (
+    <div style={overlay} onClick={onMinimize}>
+      <div onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", padding: 32 }}>
+        <div style={{ fontSize: 13, letterSpacing: 2, textTransform: "uppercase", color: "#7a7a82", marginBottom: 18, fontWeight: 700 }}>Descanso</div>
+        <div style={{ fontSize: 92, fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1, color: finished ? accent : "#f4f4f5", fontFamily: "'Barlow Condensed', sans-serif" }}>
+          {mm}:{String(ss).padStart(2, "0")}
+        </div>
+        <div style={{ fontSize: 15, color: finished ? accent : "#7a7a82", marginTop: 8, fontWeight: 600, minHeight: 22 }}>{finished ? "Bora pra próxima série" : ""}</div>
+        <div style={{ display: "flex", gap: 10, marginTop: 28, justifyContent: "center", flexWrap: "wrap" }}>
+          {!finished && <button onClick={onExtend} style={pillBtn(accent, false)}>+30s</button>}
+          {!finished && <button onClick={onMinimize} style={pillBtn(accent, false)}>Minimizar</button>}
+          <button onClick={onCancel} style={pillBtn(accent, true)}>{finished ? "Fechar" : "Pular"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimerChip({ left, accent, finished, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      position: "fixed", left: "50%", transform: "translateX(-50%)",
+      bottom: "calc(74px + env(safe-area-inset-bottom, 0px))", zIndex: 55,
+      display: "flex", alignItems: "center", gap: 8, padding: "11px 20px",
+      borderRadius: 999, cursor: "pointer",
+      background: finished ? accent : "#17171c",
+      border: "1.5px solid " + accent,
+      color: finished ? "#101013" : accent,
+      fontWeight: 800, fontSize: 15, fontVariantNumeric: "tabular-nums",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+    }}>
+      <Icon.Timer /> {finished ? "Descanso acabou" : fmtClock(left)}
+    </button>
+  );
+}
+
+// ============================================================
+// COMPLETION RING
+// ============================================================
+function Ring({ pct, accent, size = 132, stroke = 11 }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - pct);
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#26262b" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={accent} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1)" }} />
+    </svg>
+  );
+}
+
+// ============================================================
 // MAIN APP
 // ============================================================
 function App() {
@@ -279,11 +356,15 @@ function App() {
   const [progress, setProgress] = useState({});
   const [history, setHistory] = useState([]);
   const [activeWorkout, setActiveWorkout] = useState(null);
-  const [editingWorkout, setEditingWorkout] = useState(null); // draft object or "new"
-  const [editingExercise, setEditingExercise] = useState(null); // { ex } or { ex: null }
+  const [editingWorkout, setEditingWorkout] = useState(null);
+  const [editingExercise, setEditingExercise] = useState(null);
   const [showSchedule, setShowSchedule] = useState(false);
-  const [timer, setTimer] = useState(null);
+  const [pendingFinish, setPendingFinish] = useState(null);
   const [loaded, setLoaded] = useState(false);
+
+  // timer global de descanso
+  const [timer, setTimer] = useState(null); // { endAt, total, accent, minimized, finished }
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     (async () => {
@@ -296,24 +377,72 @@ function App() {
       if (!lb) { lb = DEFAULT_LIBRARY; await storeSet(KEY_LIBRARY, lb); }
       if (!wk) { wk = DEFAULT_WORKOUTS; await storeSet(KEY_WORKOUTS, wk); }
       if (!sc) { sc = DEFAULT_SCHEDULE; await storeSet(KEY_SCHEDULE, sc); }
+      // migração: formato antigo de checks -> contagem de séries
+      let migrated = false;
+      Object.entries(pr).forEach(([k, p]) => {
+        if (p && p.checks && !p.sets) {
+          const w = wk[k];
+          p.sets = {};
+          if (w) w.items.forEach((it) => { if (p.checks[it.exId]) p.sets[it.exId] = plannedSets(it); });
+          delete p.checks;
+          migrated = true;
+        }
+      });
+      if (migrated) await storeSet(KEY_PROGRESS, pr);
       setLogs(lg); setProgress(pr); setHistory(hs);
       setLib(lb); setWorkouts(wk); setSchedule(sc);
       setLoaded(true);
     })();
   }, []);
 
-  // ---------- helpers ----------
+  // tick do timer
+  useEffect(() => {
+    if (!timer) return;
+    const iv = setInterval(() => setNow(Date.now()), 400);
+    return () => clearInterval(iv);
+  }, [timer]);
+
+  const timerLeft = timer ? Math.max(0, Math.ceil((timer.endAt - now) / 1000)) : 0;
+
+  useEffect(() => {
+    if (timer && !timer.finished && timer.endAt - now <= 0) {
+      setTimer((t) => (t ? { ...t, finished: true } : t));
+      notifyRestDone();
+    }
+  }, [now, timer]);
+
+  const startTimer = useCallback((seconds, accent) => {
+    setNow(Date.now());
+    setTimer({ endAt: Date.now() + seconds * 1000, total: seconds, accent, minimized: false, finished: false });
+  }, []);
+
+  const extendTimer = () => setTimer((t) => (t ? { ...t, endAt: t.endAt + 30000, finished: false } : t));
+
+  // ---------- derived ----------
   const todayIdx = new Date().getDay();
   const todayKey = schedule[todayIdx] || null;
   const todayWorkout = todayKey ? workouts[todayKey] : null;
 
+  const effectiveId = useCallback((sessionKey, origId) => {
+    const p = progress[sessionKey];
+    return (p && p.subs && p.subs[origId]) || origId;
+  }, [progress]);
+
   const sessionProgress = useCallback((key) => {
     const w = workouts[key];
-    if (!w) return { done: 0, total: 0, pct: 0 };
+    if (!w) return { done: 0, total: 0, pct: 0, setsDone: 0, setsTotal: 0 };
     const p = progress[key];
     const total = w.items.length;
-    const done = p ? w.items.filter((it) => p.checks && p.checks[it.exId]).length : 0;
-    return { done, total, pct: total ? done / total : 0 };
+    let done = 0, setsDone = 0, setsTotal = 0;
+    w.items.forEach((it) => {
+      const planned = plannedSets(it);
+      setsTotal += planned;
+      const eff = (p && p.subs && p.subs[it.exId]) || it.exId;
+      const c = Math.min((p && p.sets && p.sets[eff]) || 0, planned);
+      setsDone += c;
+      if (planned > 0 && c >= planned) done += 1;
+    });
+    return { done, total, pct: total ? done / total : 0, setsDone, setsTotal };
   }, [progress, workouts]);
 
   const usageCount = useCallback((exId) => {
@@ -321,25 +450,65 @@ function App() {
   }, [workouts]);
 
   // ---------- mutations ----------
-  const toggleCheck = async (sessionKey, exId) => {
+  const setSetCount = async (sessionKey, exId, count, opts = {}) => {
     const next = { ...progress };
-    const cur = next[sessionKey] || { date: new Date().toISOString(), checks: {} };
-    cur.checks = { ...cur.checks, [exId]: !cur.checks[exId] };
+    const cur = next[sessionKey] ? { ...next[sessionKey] } : { startedAt: null, sets: {}, subs: {} };
+    if (!cur.startedAt) cur.startedAt = new Date().toISOString();
+    const prev = (cur.sets && cur.sets[exId]) || 0;
+    cur.sets = { ...(cur.sets || {}), [exId]: count };
+    cur.date = new Date().toISOString();
+    next[sessionKey] = cur;
+    setProgress(next);
+    await storeSet(KEY_PROGRESS, next);
+    if (count > prev && opts.rest) startTimer(opts.rest, opts.accent || "#E8843C");
+  };
+
+  const setSub = async (sessionKey, origId, newId) => {
+    const next = { ...progress };
+    const cur = next[sessionKey] ? { ...next[sessionKey] } : { startedAt: null, sets: {}, subs: {} };
+    const subs = { ...(cur.subs || {}) };
+    const prevEff = subs[origId] || origId;
+    if (newId) subs[origId] = newId; else delete subs[origId];
+    // zera a contagem do exercício anterior nesse slot
+    const sets = { ...(cur.sets || {}) };
+    delete sets[prevEff];
+    cur.subs = subs;
+    cur.sets = sets;
     cur.date = new Date().toISOString();
     next[sessionKey] = cur;
     setProgress(next);
     await storeSet(KEY_PROGRESS, next);
   };
 
-  const finishSession = async (sessionKey) => {
+  const requestFinish = (sessionKey) => setPendingFinish(sessionKey);
+
+  const finalizeSession = async (sessionKey, note) => {
     const w = workouts[sessionKey];
-    const nextH = [...history, { key: sessionKey, name: w ? w.name : sessionKey, tag: w ? w.tag : "", date: new Date().toISOString() }];
+    const p = progress[sessionKey];
+    const sp = sessionProgress(sessionKey);
+    const startedAt = p && p.startedAt ? new Date(p.startedAt).getTime() : null;
+    const duration = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
+    const entry = {
+      key: sessionKey,
+      name: w ? w.name : sessionKey,
+      tag: w ? w.tag : "",
+      accent: w ? w.accent : "#8a8a92",
+      date: new Date().toISOString(),
+      duration,
+      exDone: sp.done,
+      exTotal: sp.total,
+      setsDone: sp.setsDone,
+      setsTotal: sp.setsTotal,
+      note: (note || "").trim(),
+    };
+    const nextH = [...history, entry];
     setHistory(nextH);
     await storeSet(KEY_HISTORY, nextH);
     const next = { ...progress };
     delete next[sessionKey];
     setProgress(next);
     await storeSet(KEY_PROGRESS, next);
+    setPendingFinish(null);
     setActiveWorkout(null);
     setTab("today");
   };
@@ -383,12 +552,10 @@ function App() {
     delete next[key];
     setWorkouts(next);
     await storeSet(KEY_WORKOUTS, next);
-    // limpa agenda
     const sc = { ...schedule };
     let changed = false;
     Object.keys(sc).forEach((d) => { if (sc[d] === key) { sc[d] = null; changed = true; } });
     if (changed) { setSchedule(sc); await storeSet(KEY_SCHEDULE, sc); }
-    // limpa progresso pendente
     if (progress[key]) {
       const pr = { ...progress };
       delete pr[key];
@@ -426,14 +593,15 @@ function App() {
             workout={workouts[activeWorkout]}
             lib={lib}
             progress={progress[activeWorkout]}
-            onToggle={toggleCheck}
+            sp={sessionProgress(activeWorkout)}
+            onSetCount={setSetCount}
+            onSub={setSub}
             onBack={() => setActiveWorkout(null)}
-            onFinish={() => finishSession(activeWorkout)}
+            onFinish={() => requestFinish(activeWorkout)}
             onEdit={() => setEditingWorkout(workouts[activeWorkout])}
-            onTimer={(s, a) => setTimer({ seconds: s, accent: a })}
+            onTimer={(s, a) => startTimer(s, a)}
             logSet={logSet}
             lastLog={lastLog}
-            sp={sessionProgress(activeWorkout)}
           />
         ) : tab === "today" ? (
           <TodayView
@@ -511,7 +679,65 @@ function App() {
         />
       )}
 
-      {timer && <RestTimer seconds={timer.seconds} accent={timer.accent} onClose={() => setTimer(null)} />}
+      {pendingFinish && (
+        <NoteModal
+          accent={workouts[pendingFinish] ? workouts[pendingFinish].accent : "#E8843C"}
+          onSave={(note) => finalizeSession(pendingFinish, note)}
+          onSkip={() => finalizeSession(pendingFinish, "")}
+          onClose={() => setPendingFinish(null)}
+        />
+      )}
+
+      {timer && !timer.minimized && (
+        <RestTimerModal
+          left={timerLeft}
+          total={timer.total}
+          accent={timer.accent}
+          finished={timer.finished}
+          onCancel={() => setTimer(null)}
+          onMinimize={() => setTimer((t) => (t ? { ...t, minimized: true } : t))}
+          onExtend={extendTimer}
+        />
+      )}
+      {timer && timer.minimized && (
+        <TimerChip
+          left={timerLeft}
+          accent={timer.accent}
+          finished={timer.finished}
+          onClick={() => timer.finished ? setTimer(null) : setTimer((t) => (t ? { ...t, minimized: false } : t))}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// NOTE MODAL (nota da sessão ao concluir)
+// ============================================================
+function NoteModal({ accent, onSave, onSkip, onClose }) {
+  const [note, setNote] = useState("");
+  return (
+    <div style={{ ...overlay, zIndex: 85 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={panel}>
+        <div style={panelHeader}>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>Como foi o treino?</span>
+          <button onClick={onClose} style={iconBtn}><Icon.X /></button>
+        </div>
+        <div style={{ padding: "0 18px 18px" }}>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            placeholder="Anotação opcional — ex.: ombro incomodou no supino, subi carga no voador…"
+            style={{ ...textInput, resize: "vertical", fontFamily: "inherit" }}
+            autoFocus
+          />
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <button onClick={onSkip} style={{ flex: 1, padding: "13px", background: "transparent", color: "#9a9aa2", border: "1.5px solid #2a2a30", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Pular</button>
+            <button onClick={() => onSave(note)} style={{ ...primaryBtn(accent), flex: 2, justifyContent: "center" }}><Icon.Check /> Concluir</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -531,7 +757,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
             <div>
               <div style={{ display: "inline-block", background: workout.accent, color: "#101013", fontWeight: 800, fontSize: 13, padding: "3px 11px", borderRadius: 6, letterSpacing: 1 }}>{workout.tag}</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 34, fontWeight: 700, lineHeight: 1.05, marginTop: 12, textTransform: "uppercase" }}>{workout.name}</div>
-              <div style={{ color: "#8a8a92", fontSize: 14, marginTop: 6 }}>{workout.items.length} exercícios · {sp.done}/{sp.total} feitos</div>
+              <div style={{ color: "#8a8a92", fontSize: 14, marginTop: 6 }}>{workout.items.length} exercícios · {sp.setsDone}/{sp.setsTotal} séries</div>
             </div>
             <div style={{ position: "relative", flexShrink: 0 }}>
               <Ring pct={sp.pct} accent={workout.accent} />
@@ -541,7 +767,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
             </div>
           </div>
           <button onClick={() => onOpen(workout.key)} style={{ ...primaryBtn(workout.accent), marginTop: 20, width: "100%" }}>
-            {sp.done > 0 ? "Continuar treino" : "Começar treino"} <Icon.Arrow />
+            {sp.setsDone > 0 ? "Continuar treino" : "Começar treino"} <Icon.Arrow />
           </button>
         </div>
       ) : (
@@ -579,7 +805,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
                     <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{w.name}</span>
                     <span style={{ display: "block", fontSize: 12, color: "#7a7a82" }}>{isToday ? "Hoje" : ""} {w.items.length} exercícios</span>
                   </span>
-                  {p && p.done > 0 && p.done < p.total && <span style={{ fontSize: 11, color: w.accent, fontWeight: 700 }}>{p.done}/{p.total}</span>}
+                  {p && p.setsDone > 0 && p.done < p.total && <span style={{ fontSize: 11, color: w.accent, fontWeight: 700 }}>{p.done}/{p.total}</span>}
                 </React.Fragment>
               ) : (
                 <React.Fragment>
@@ -678,20 +904,38 @@ function WorkoutsView({ workouts, onOpen, onEdit, onNew }) {
 // ============================================================
 // SESSION DETAIL
 // ============================================================
-function SessionDetail({ sessionKey, workout, lib, progress, onToggle, onBack, onFinish, onEdit, onTimer, logSet, lastLog, sp }) {
-  const checks = (progress && progress.checks) || {};
+function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onSub, onBack, onFinish, onEdit, onTimer, logSet, lastLog }) {
+  const subs = (progress && progress.subs) || {};
+  const setCounts = (progress && progress.sets) || {};
+  const startedAt = progress && progress.startedAt ? new Date(progress.startedAt).getTime() : null;
+  const [swapping, setSwapping] = useState(null); // origId em troca
+
+  // cronômetro da sessão
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!startedAt) return;
+    const iv = setInterval(() => forceTick((x) => x + 1), 1000);
+    return () => clearInterval(iv);
+  }, [startedAt]);
+  const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : null;
+
   return (
     <div>
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#101013", borderBottom: "1px solid #1f1f24", padding: "14px 18px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={onBack} style={{ background: "none", border: "none", color: "#9a9aa2", cursor: "pointer", display: "flex", padding: 0 }}>
             <span style={{ transform: "rotate(180deg)", display: "flex" }}><Icon.Arrow /></span>
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ background: workout.accent, color: "#101013", fontWeight: 800, fontSize: 11, padding: "2px 8px", borderRadius: 5 }}>{workout.tag}</span>
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{workout.name}</span>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{workout.name}</span>
             </div>
+            {elapsed != null && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3, color: "#8a8a92", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                <Icon.Timer width={12} height={12} /> {fmtClock(elapsed)}
+              </div>
+            )}
           </div>
           <button onClick={onEdit} style={iconBtn} aria-label="Editar treino"><Icon.Pencil /></button>
           <div style={{ position: "relative", width: 42, height: 42, flexShrink: 0 }}>
@@ -713,19 +957,29 @@ function SessionDetail({ sessionKey, workout, lib, progress, onToggle, onBack, o
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {workout.items.map((it, idx) => {
-            const base = lib[it.exId] || { name: "Exercício removido da biblioteca", warn: "", note: "" };
-            const ex = { id: it.exId, name: base.name, warn: base.warn, note: base.note, video: base.video || "", sets: it.sets, reps: it.reps, rest: it.rest };
+            const effId = subs[it.exId] || it.exId;
+            const isSub = effId !== it.exId;
+            const base = lib[effId] || { name: "Exercício removido da biblioteca", warn: "", note: "", video: "" };
+            const planned = plannedSets(it);
+            const ex = { id: effId, origId: it.exId, name: base.name, warn: base.warn, note: base.note, video: base.video || "", sets: planned, reps: it.reps, rest: it.rest };
             return (
               <ExerciseCard
                 key={it.exId + "-" + idx}
                 ex={ex}
                 idx={idx}
                 accent={workout.accent}
-                checked={!!checks[it.exId]}
-                onToggle={() => onToggle(sessionKey, it.exId)}
+                setsDone={Math.min(setCounts[effId] || 0, planned)}
+                isSub={isSub}
+                onSetChange={(count) => onSetCount(sessionKey, effId, count, { rest: parseRest(it.rest), accent: workout.accent })}
+                onToggleAll={() => {
+                  const cur = Math.min(setCounts[effId] || 0, planned);
+                  onSetCount(sessionKey, effId, cur >= planned ? 0 : planned, {});
+                }}
+                onSwap={() => setSwapping(it.exId)}
+                onUndoSub={() => onSub(sessionKey, it.exId, null)}
                 onTimer={() => onTimer(parseRest(it.rest), workout.accent)}
                 logSet={logSet}
-                last={lastLog(it.exId)}
+                last={lastLog(effId)}
               />
             );
           })}
@@ -740,32 +994,54 @@ function SessionDetail({ sessionKey, workout, lib, progress, onToggle, onBack, o
           </button>
         )}
         <p style={{ textAlign: "center", color: "#5a5a62", fontSize: 12, marginTop: 10, lineHeight: 1.5 }}>
-          Concluir registra a sessão no histórico e limpa os checks.
+          Concluir registra a sessão no histórico (com duração e séries) e limpa o andamento.
         </p>
       </div>
+
+      {swapping && (
+        <ExercisePicker
+          lib={lib}
+          existing={[subs[swapping] || swapping]}
+          title="Substituir nesta sessão"
+          closeOnPick={true}
+          onPick={(ex) => { onSub(sessionKey, swapping, ex.id === swapping ? null : ex.id); setSwapping(null); }}
+          onCreateNew={null}
+          onClose={() => setSwapping(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ExerciseCard({ ex, idx, accent, checked, onToggle, onTimer, logSet, last }) {
+// ============================================================
+// EXERCISE CARD (com séries individuais)
+// ============================================================
+function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleAll, onSwap, onUndoSub, onTimer, logSet, last }) {
   const [open, setOpen] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
-  const vid = ytId(ex.video);
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
+  const vid = ytId(ex.video);
+  const checked = ex.sets > 0 && setsDone >= ex.sets;
 
   const save = () => {
     if (!weight) return;
-    logSet(ex.id, { weight: parseFloat(weight), reps: reps || ex.reps });
+    const setNum = Math.min(Math.max(setsDone, 1), ex.sets || 1);
+    logSet(ex.id, { weight: parseFloat(weight), reps: reps || ex.reps, set: setNum });
     setWeight(""); setReps("");
     setOpen(false);
+  };
+
+  const tapSet = (i) => {
+    const newCount = i < setsDone ? i : i + 1;
+    onSetChange(newCount);
   };
 
   return (
     <div style={{ ...card, padding: 0, overflow: "hidden", borderColor: checked ? accent + "66" : "#1f1f24" }}>
       <div style={{ display: "flex", alignItems: "stretch" }}>
-        <button onClick={onToggle} aria-label="marcar concluído" style={{
-          width: 56, flexShrink: 0, border: "none", cursor: "pointer",
+        <button onClick={onToggleAll} aria-label="marcar exercício completo" style={{
+          width: 50, flexShrink: 0, border: "none", cursor: "pointer",
           background: checked ? accent : "#1a1a1f",
           color: checked ? "#101013" : "#3a3a42",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -781,17 +1057,46 @@ function ExerciseCard({ ex, idx, accent, checked, onToggle, onTimer, logSet, las
             <span style={{ fontSize: 12, color: "#5a5a62", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{String(idx + 1).padStart(2, "0")}</span>
             <span style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.25, textDecoration: checked ? "line-through" : "none", color: checked ? "#7a7a82" : "#f0f0f2" }}>{ex.name}</span>
           </div>
-          <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <Stat label="Séries" value={ex.sets} accent={accent} />
+
+          {isSub && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#E3C84C", background: "#221f10", border: "1px solid #3a3520", borderRadius: 5, padding: "2px 7px" }}>Substituído nesta sessão</span>
+              <button onClick={onUndoSub} style={{ background: "none", border: "none", color: "#8a8a92", fontSize: 11.5, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}>desfazer</button>
+            </div>
+          )}
+
+          {ex.sets > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+              {Array.from({ length: ex.sets }).map((_, i) => {
+                const done = i < setsDone;
+                return (
+                  <button key={i} onClick={() => tapSet(i)} aria-label={"série " + (i + 1)} style={{
+                    width: 36, height: 36, borderRadius: 10, cursor: "pointer",
+                    border: done ? "none" : "1.5px solid #2e2e36",
+                    background: done ? accent : "#16161b",
+                    color: done ? "#101013" : "#8a8a92",
+                    fontWeight: 800, fontSize: 13.5,
+                    transition: "all .15s",
+                  }}>{i + 1}</button>
+                );
+              })}
+              <span style={{ fontSize: 11, color: "#6a6a72", fontWeight: 700, marginLeft: 4 }}>{setsDone}/{ex.sets}</span>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
             <Stat label="Reps" value={ex.reps} accent={accent} />
-            <button onClick={onTimer} style={{ display: "flex", alignItems: "center", gap: 5, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 7, padding: "4px 9px", color: "#b0b0b8", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={onTimer} style={chipBtn("#b0b0b8")}>
               <Icon.Timer /> {ex.rest}
             </button>
             {vid ? (
-              <button onClick={() => setShowVideo(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 7, padding: "4px 9px", color: accent, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={() => setShowVideo(true)} style={chipBtn(accent, 700)}>
                 <Icon.Play /> Vídeo
               </button>
             ) : null}
+            <button onClick={onSwap} style={chipBtn("#b0b0b8")}>
+              <Icon.Swap /> Trocar
+            </button>
           </div>
 
           {(ex.warn || ex.note) ? (
@@ -807,14 +1112,15 @@ function ExerciseCard({ ex, idx, accent, checked, onToggle, onTimer, logSet, las
             </button>
             {last && (
               <span style={{ fontSize: 12, color: "#7a7a82" }}>
-                Última: <strong style={{ color: "#b0b0b8" }}>{last.weight}kg × {last.reps}</strong>
+                Última: <strong style={{ color: "#b0b0b8" }}>{last.weight}kg × {last.reps}{last.set ? " · S" + last.set : ""}</strong>
               </span>
             )}
           </div>
 
           {open && (
-            <div style={{ display: "flex", gap: 8, marginTop: 11, alignItems: "center" }}>
-              <input inputMode="decimal" placeholder="kg" value={weight} onChange={(e) => setWeight(e.target.value)} style={inputStyle} />
+            <div style={{ display: "flex", gap: 8, marginTop: 11, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: accent, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 6, padding: "5px 8px" }}>S{Math.min(Math.max(setsDone, 1), ex.sets || 1)}</span>
+              <input inputMode="decimal" placeholder={last ? String(last.weight) : "kg"} value={weight} onChange={(e) => setWeight(e.target.value)} style={inputStyle} />
               <span style={{ color: "#5a5a62" }}>×</span>
               <input inputMode="numeric" placeholder="reps" value={reps} onChange={(e) => setReps(e.target.value)} style={inputStyle} />
               <button onClick={save} style={{ ...primaryBtn(accent), padding: "9px 16px", fontSize: 13 }}>Salvar</button>
@@ -965,6 +1271,8 @@ function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose
         <ExercisePicker
           lib={lib}
           existing={draft.items.map((it) => it.exId)}
+          title="Adicionar exercício"
+          closeOnPick={false}
           onPick={addExercise}
           onCreateNew={() => { setCreatingEx(true); }}
           onClose={() => setPicking(false)}
@@ -987,7 +1295,7 @@ function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose
 // ============================================================
 // EXERCISE PICKER
 // ============================================================
-function ExercisePicker({ lib, existing, onPick, onCreateNew, onClose }) {
+function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew, onClose }) {
   const [q, setQ] = useState("");
   const list = useMemo(() => {
     const all = Object.values(lib).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
@@ -999,7 +1307,7 @@ function ExercisePicker({ lib, existing, onPick, onCreateNew, onClose }) {
     <div style={{ ...overlay, zIndex: 70 }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...panel, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
         <div style={panelHeader}>
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>Adicionar exercício</span>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{title || "Adicionar exercício"}</span>
           <button onClick={onClose} style={iconBtn}><Icon.X /></button>
         </div>
         <div style={{ padding: "0 18px 12px" }}>
@@ -1007,16 +1315,18 @@ function ExercisePicker({ lib, existing, onPick, onCreateNew, onClose }) {
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#5a5a62", display: "flex" }}><Icon.Search /></span>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar na biblioteca…" style={{ ...textInput, paddingLeft: 36 }} />
           </div>
-          <button onClick={onCreateNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#E8843C", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "12px 0 0" }}>
-            <Icon.Plus /> Criar exercício novo
-          </button>
+          {onCreateNew && (
+            <button onClick={onCreateNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#E8843C", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "12px 0 0" }}>
+              <Icon.Plus /> Criar exercício novo
+            </button>
+          )}
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "0 18px 18px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {list.map((ex) => {
               const added = existing.includes(ex.id);
               return (
-                <button key={ex.id} onClick={() => !added && onPick(ex)} disabled={added} style={{ ...card, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, cursor: added ? "default" : "pointer", opacity: added ? 0.45 : 1, textAlign: "left", width: "100%" }}>
+                <button key={ex.id} onClick={() => { if (!added) { onPick(ex); if (closeOnPick) onClose(); } }} disabled={added} style={{ ...card, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, cursor: added ? "default" : "pointer", opacity: added ? 0.45 : 1, textAlign: "left", width: "100%" }}>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontWeight: 600, fontSize: 14, color: "#f0f0f2", lineHeight: 1.3 }}>{ex.name}</span>
                     <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 2 }}>{ex.sets}× {ex.reps} · {ex.rest}</span>
@@ -1034,7 +1344,7 @@ function ExercisePicker({ lib, existing, onPick, onCreateNew, onClose }) {
 }
 
 // ============================================================
-// EXERCISE FORM (criar/editar exercício)
+// EXERCISE FORM
 // ============================================================
 function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
   const isNew = !initial;
@@ -1148,7 +1458,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
                   {ytId(ex.video) ? <span style={{ color: "#5EB87A", display: "flex", flexShrink: 0 }}><Icon.Play width={12} height={12} /></span> : null}
                 </span>
                 <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 3 }}>
-                  {ex.sets}× {ex.reps} · {ex.rest}{uses > 0 ? ` · em ${uses} treino${uses > 1 ? "s" : ""}` : ""}
+                  {ex.sets}× {ex.reps} · {ex.rest}{uses > 0 ? " · em " + uses + " treino" + (uses > 1 ? "s" : "") : ""}
                 </span>
               </span>
               <span style={{ color: "#5a5a62", display: "flex", flexShrink: 0 }}><Icon.Pencil /></span>
@@ -1182,7 +1492,31 @@ function ProgressView({ logs, lib, workouts, history }) {
   const totalSets = Object.values(logs).reduce((acc, arr) => acc + (arr ? arr.length : 0), 0);
   const completedSessions = history.length;
 
+  // volume semanal (séries feitas por semana, últimas 8 semanas)
+  const weekly = useMemo(() => {
+    const MS_WEEK = 7 * 24 * 3600 * 1000;
+    const cur = weekStartMs(new Date());
+    const buckets = [];
+    for (let i = 7; i >= 0; i--) {
+      const start = cur - i * MS_WEEK;
+      buckets.push({ start, label: new Date(start).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), sets: 0 });
+    }
+    history.forEach((h) => {
+      if (!h.setsDone) return;
+      const ws = weekStartMs(h.date);
+      const b = buckets.find((bk) => bk.start === ws);
+      if (b) b.sets += h.setsDone;
+    });
+    const any = buckets.some((b) => b.sets > 0);
+    return any ? buckets : null;
+  }, [history]);
+
   const [expanded, setExpanded] = useState(null);
+  const [expandedSession, setExpandedSession] = useState(null);
+  const [showAllSessions, setShowAllSessions] = useState(false);
+
+  const sessionsDesc = useMemo(() => [...history].reverse(), [history]);
+  const sessionsShown = showAllSessions ? sessionsDesc : sessionsDesc.slice(0, 8);
 
   return (
     <div style={{ padding: "22px 18px 30px" }}>
@@ -1191,8 +1525,59 @@ function ProgressView({ logs, lib, workouts, history }) {
         <MetricCard value={totalSets} label="cargas registradas" accent="#5EB87A" icon={<Icon.Dumbbell />} />
       </div>
 
+      {weekly && (
+        <React.Fragment>
+          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 12 }}>Volume semanal (séries)</div>
+          <div style={{ ...card, padding: "16px 14px 10px", marginBottom: 22 }}>
+            <WeeklyBars buckets={weekly} />
+          </div>
+        </React.Fragment>
+      )}
+
+      {sessionsDesc.length > 0 && (
+        <React.Fragment>
+          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 12 }}>Histórico de sessões</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+            {sessionsShown.map((h, i) => {
+              const accent = h.accent || (workouts[h.key] ? workouts[h.key].accent : "#8a8a92");
+              const hasDetails = h.note || h.duration != null;
+              const sid = h.date + "-" + i;
+              const isOpen = expandedSession === sid;
+              const d = new Date(h.date);
+              return (
+                <div key={sid} style={{ ...card, padding: 0, overflow: "hidden" }}>
+                  <button onClick={() => hasDetails && setExpandedSession(isOpen ? null : sid)} style={{ width: "100%", padding: "13px 14px", background: "none", border: "none", cursor: hasDetails ? "pointer" : "default", textAlign: "left", display: "flex", alignItems: "center", gap: 11 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: 8, background: accent, color: "#101013", fontWeight: 800, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{h.tag || "•"}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontWeight: 600, fontSize: 14, color: "#f0f0f2" }}>{h.name}</span>
+                      <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 2 }}>
+                        {d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}
+                        {h.exTotal != null ? " · " + h.exDone + "/" + h.exTotal + " exercícios" : ""}
+                        {h.setsDone != null ? " · " + h.setsDone + " séries" : ""}
+                      </span>
+                    </span>
+                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
+                      {h.duration != null && <span style={{ fontSize: 12.5, fontWeight: 800, color: "#b0b0b8" }}>{fmtDur(h.duration)}</span>}
+                      {h.note && <span style={{ color: "#E3C84C", display: "flex" }}><Icon.Pencil width={12} height={12} /></span>}
+                    </span>
+                  </button>
+                  {isOpen && h.note && (
+                    <div style={{ padding: "0 14px 13px 57px", fontSize: 13, color: "#c9c9ce", lineHeight: 1.5 }}>{h.note}</div>
+                  )}
+                </div>
+              );
+            })}
+            {sessionsDesc.length > 8 && (
+              <button onClick={() => setShowAllSessions((s) => !s)} style={{ background: "none", border: "none", color: "#8a8a92", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "6px 0" }}>
+                {showAllSessions ? "Mostrar menos" : "Mostrar todas (" + sessionsDesc.length + ")"}
+              </button>
+            )}
+          </div>
+        </React.Fragment>
+      )}
+
       {logged.length === 0 ? (
-        <div style={{ padding: "40px 30px", textAlign: "center" }}>
+        <div style={{ padding: "30px 30px", textAlign: "center" }}>
           <div style={{ color: "#3a3a42", display: "inline-flex", marginBottom: 16 }}><Icon.Chart width={48} height={48} /></div>
           <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 8 }}>Sem registros de carga ainda</div>
           <div style={{ color: "#7a7a82", fontSize: 14, lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>
@@ -1231,7 +1616,7 @@ function ProgressView({ logs, lib, workouts, history }) {
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
                         {[...arr].reverse().map((l, i) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", borderBottom: i < arr.length - 1 ? "1px solid #1c1c22" : "none" }}>
-                            <span style={{ color: "#9a9aa2" }}>{new Date(l.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
+                            <span style={{ color: "#9a9aa2" }}>{new Date(l.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{l.set ? " · S" + l.set : ""}</span>
                             <span style={{ fontWeight: 700, color: "#e0e0e4" }}>{l.weight}kg × {l.reps}</span>
                           </div>
                         ))}
@@ -1244,6 +1629,101 @@ function ProgressView({ logs, lib, workouts, history }) {
           </div>
         </React.Fragment>
       )}
+
+      <BackupCard />
+    </div>
+  );
+}
+
+function WeeklyBars({ buckets }) {
+  const max = Math.max(...buckets.map((b) => b.sets), 1);
+  const W = 320, H = 110, padB = 22, padT = 16;
+  const bw = W / buckets.length;
+  return (
+    <svg width="100%" viewBox={"0 0 " + W + " " + H} style={{ display: "block" }}>
+      {buckets.map((b, i) => {
+        const h = b.sets > 0 ? Math.max(((H - padB - padT) * b.sets) / max, 3) : 2;
+        const x = i * bw + bw * 0.18;
+        const y = H - padB - h;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={bw * 0.64} height={h} rx={4} fill={b.sets > 0 ? "#E8843C" : "#26262b"} opacity={b.sets > 0 ? 1 : 0.6} />
+            {b.sets > 0 && <text x={x + bw * 0.32} y={y - 5} textAnchor="middle" fontSize="11" fontWeight="800" fill="#d0d0d4">{b.sets}</text>}
+            <text x={x + bw * 0.32} y={H - 7} textAnchor="middle" fontSize="9" fontWeight="600" fill="#6a6a72">{b.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function BackupCard() {
+  const fileRef = useRef(null);
+  const [pendingImport, setPendingImport] = useState(null);
+  const [msg, setMsg] = useState("");
+
+  const handleFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (parsed.app !== "ciclo7" || !parsed.data || typeof parsed.data !== "object") {
+          setMsg("Arquivo inválido — não parece um backup do Ciclo7.");
+          setPendingImport(null);
+          return;
+        }
+        setMsg("");
+        setPendingImport(parsed);
+      } catch (err) {
+        setMsg("Não consegui ler o arquivo. É um .json de backup?");
+        setPendingImport(null);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const confirmImport = () => {
+    try {
+      Object.entries(pendingImport.data).forEach(([k, v]) => {
+        if (ALL_KEYS.includes(k)) localStorage.setItem(NS + k, JSON.stringify(v));
+      });
+      window.location.reload();
+    } catch (err) {
+      setMsg("Erro ao importar. Tenta de novo.");
+      setPendingImport(null);
+    }
+  };
+
+  return (
+    <div style={{ ...card, marginTop: 26, padding: 18 }}>
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 8 }}>Backup dos dados</div>
+      <p style={{ color: "#8a8a92", fontSize: 13, lineHeight: 1.5, margin: "0 0 14px" }}>
+        Seus dados ficam só neste aparelho. Exporte um arquivo de backup pra guardar ou levar pra outro celular.
+      </p>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={exportAllData} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+          <Icon.Download /> Exportar
+        </button>
+        <button onClick={() => fileRef.current && fileRef.current.click()} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+          <Icon.Upload /> Importar
+        </button>
+        <input ref={fileRef} type="file" accept=".json,application/json" onChange={handleFile} style={{ display: "none" }} />
+      </div>
+      {pendingImport && (
+        <div style={{ marginTop: 14, padding: 14, background: "#1a1610", border: "1px solid #3a2f1f", borderRadius: 10 }}>
+          <div style={{ fontSize: 13, color: "#c9b896", lineHeight: 1.5, marginBottom: 10 }}>
+            <strong style={{ color: "#E8843C" }}>Atenção:</strong> importar substitui TODOS os dados atuais pelos do backup{pendingImport.exportedAt ? " (de " + new Date(pendingImport.exportedAt).toLocaleDateString("pt-BR") + ")" : ""}. Essa ação não pode ser desfeita.
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setPendingImport(null)} style={{ flex: 1, padding: "10px", background: "transparent", color: "#9a9aa2", border: "1px solid #2a2a30", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+            <button onClick={confirmImport} style={{ flex: 1, padding: "10px", background: "#E8843C", color: "#101013", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Confirmar importação</button>
+          </div>
+        </div>
+      )}
+      {msg && <div style={{ marginTop: 10, color: "#e36a5a", fontSize: 13, fontWeight: 600 }}>{msg}</div>}
     </div>
   );
 }
@@ -1269,9 +1749,9 @@ function MiniChart({ arr, accent }) {
     const y = H - pad - ((w - min) / range) * (H - 2 * pad);
     return [x, y];
   });
-  const path = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const path = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+    <svg width="100%" viewBox={"0 0 " + W + " " + H} style={{ display: "block" }}>
       <path d={path} fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill={accent} />)}
     </svg>
@@ -1308,10 +1788,15 @@ const primaryBtn = (accent) => ({
   padding: "14px 20px", fontSize: 15, fontWeight: 700, cursor: "pointer",
 });
 const pillBtn = (accent, filled) => ({
-  padding: "12px 26px", borderRadius: 999, fontSize: 15, fontWeight: 700, cursor: "pointer",
-  border: filled ? "none" : `1.5px solid ${accent}`,
+  padding: "12px 22px", borderRadius: 999, fontSize: 15, fontWeight: 700, cursor: "pointer",
+  border: filled ? "none" : "1.5px solid " + accent,
   background: filled ? accent : "transparent",
   color: filled ? "#101013" : accent,
+});
+const chipBtn = (color, weight) => ({
+  display: "flex", alignItems: "center", gap: 5, background: "#1a1a1f",
+  border: "1px solid #2a2a30", borderRadius: 7, padding: "4px 9px",
+  color: color, fontSize: 12, fontWeight: weight || 600, cursor: "pointer",
 });
 const inputStyle = {
   width: 64, padding: "9px 10px", background: "#0d0d0f", border: "1px solid #2a2a30",
