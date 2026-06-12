@@ -590,6 +590,16 @@ function App() {
     await storeSet(KEY_LOGS, next);
   };
 
+  const deleteLog = async (exId, origIndex) => {
+    const next = { ...logs };
+    if (!next[exId]) return;
+    const arr = next[exId].filter((_, i) => i !== origIndex);
+    if (arr.length) next[exId] = arr;
+    else delete next[exId]; // remove o exercício do histórico se ficou sem registros
+    setLogs(next);
+    await storeSet(KEY_LOGS, next);
+  };
+
   const lastLog = (exId) => {
     const arr = logs[exId];
     return arr && arr.length ? arr[arr.length - 1] : null;
@@ -698,7 +708,7 @@ function App() {
             onNew={() => setEditingExercise({ ex: null })}
           />
         ) : (
-          <ProgressView logs={logs} lib={lib} workouts={workouts} history={history} onDeleteSession={deleteHistoryEntry} />
+          <ProgressView logs={logs} lib={lib} workouts={workouts} history={history} onDeleteSession={deleteHistoryEntry} onDeleteLog={deleteLog} />
         )}
       </main>
 
@@ -1679,7 +1689,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
 // ============================================================
 // PROGRESS VIEW
 // ============================================================
-function ProgressView({ logs, lib, workouts, history, onDeleteSession }) {
+function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteLog }) {
   const metaByEx = useMemo(() => {
     const m = {};
     Object.values(workouts).forEach((w) => w.items.forEach((it) => {
@@ -1720,6 +1730,7 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession }) {
   const [expandedSession, setExpandedSession] = useState(null);
   const [showAllSessions, setShowAllSessions] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null); // id da sessão aguardando confirmação
+  const [confirmDeleteLog, setConfirmDeleteLog] = useState(null); // "exId:origIndex" aguardando confirmação
 
   // volume por grupo muscular nas últimas 4 semanas (séries ponderadas)
   const muscleVolume = useMemo(() => {
@@ -1863,12 +1874,33 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession }) {
                     <div style={{ padding: "0 16px 16px" }}>
                       <MiniChart arr={arr} accent={accent} />
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
-                        {[...arr].reverse().map((l, i) => (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "6px 0", borderBottom: i < arr.length - 1 ? "1px solid #1c1c22" : "none" }}>
-                            <span style={{ color: "#9a9aa2" }}>{new Date(l.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{l.set ? " · S" + l.set : ""}</span>
-                            <span style={{ fontWeight: 700, color: "#e0e0e4" }}>{l.weight}kg × {l.reps}</span>
-                          </div>
-                        ))}
+                        {[...arr].reverse().map((l, i) => {
+                          const origIndex = arr.length - 1 - i;
+                          const logId = exId + ":" + origIndex;
+                          const isConfirming = confirmDeleteLog === logId;
+                          return (
+                            <div key={origIndex} style={{ borderBottom: i < arr.length - 1 ? "1px solid #1c1c22" : "none" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 0", gap: 10 }}>
+                                <span style={{ color: "#9a9aa2", flexShrink: 0 }}>{new Date(l.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{l.set ? " · S" + l.set : ""}</span>
+                                <span style={{ flex: 1, textAlign: "right", fontWeight: 700, color: "#e0e0e4" }}>{l.weight}kg × {l.reps}</span>
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => setConfirmDeleteLog(isConfirming ? null : logId)}
+                                  style={{ ...iconBtn, padding: 4, color: isConfirming ? "#e36a5a" : "#4a4a52", flexShrink: 0 }}
+                                  aria-label="Excluir registro"
+                                ><Icon.Trash width={14} height={14} /></span>
+                              </div>
+                              {isConfirming && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0 10px", justifyContent: "flex-end" }}>
+                                  <span style={{ flex: 1, fontSize: 12, color: "#b8736a", lineHeight: 1.4 }}>Excluir este registro de carga?</span>
+                                  <button onClick={() => setConfirmDeleteLog(null)} style={{ background: "none", border: "1px solid #2e2e36", borderRadius: 7, padding: "5px 10px", color: "#9a9aa2", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Cancelar</button>
+                                  <button onClick={() => { onDeleteLog(exId, origIndex); setConfirmDeleteLog(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 7, padding: "5px 10px", color: "#101013", fontSize: 12, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
