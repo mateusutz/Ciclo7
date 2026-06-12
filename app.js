@@ -395,6 +395,42 @@ function Ring({ pct, accent, size = 132, stroke = 11 }) {
 // ============================================================
 // LOGIN SCREEN
 // ============================================================
+// ============================================================
+// LOADING SCREEN (transição com movimento)
+// ============================================================
+function LoadingScreen({ label }) {
+  const size = 96;
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <div style={{ ...root, alignItems: "center", justifyContent: "center", display: "flex", flexDirection: "column", gap: 22 }}>
+      <style>{globalCss}</style>
+      <div style={{ position: "relative", width: size, height: size }}>
+        {/* anel base */}
+        <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1f1f24" strokeWidth={stroke} />
+        </svg>
+        {/* arco que gira */}
+        <svg width={size} height={size} style={{ position: "absolute", inset: 0, animation: "ciclo7-spin 1s linear infinite" }}>
+          <circle
+            cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E8843C" strokeWidth={stroke}
+            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * 0.72}
+          />
+        </svg>
+        {/* halter no centro, com pulso */}
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#E8843C", animation: "ciclo7-pulse 1.4s ease-in-out infinite" }}>
+          <Icon.Dumbbell width={34} height={34} />
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase", color: "#f0f0f2" }}>Ciclo<span style={{ color: "#E8843C" }}>7</span></span>
+        <span style={{ color: "#5a5a62", fontSize: 13, fontWeight: 600 }}>{label || "preparando seu treino"}<span className="ciclo7-dots"></span></span>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen() {
   const [mode, setMode] = useState("in"); // "in" = entrar, "up" = criar conta
   const [email, setEmail] = useState("");
@@ -790,7 +826,7 @@ function App() {
   };
 
   if (!authReady || authUser === undefined) {
-    return <div style={{ ...root, alignItems: "center", justifyContent: "center", display: "flex" }}><div style={{ color: "#5a5a62" }}>Carregando…</div></div>;
+    return <LoadingScreen label="verificando login" />;
   }
 
   if (!authUser) {
@@ -798,7 +834,7 @@ function App() {
   }
 
   if (!loaded) {
-    return <div style={{ ...root, alignItems: "center", justifyContent: "center", display: "flex" }}><div style={{ color: "#5a5a62" }}>Carregando…</div></div>;
+    return <LoadingScreen label="preparando seu treino" />;
   }
 
   return (
@@ -2306,6 +2342,10 @@ const globalCss = `
   ::-webkit-scrollbar { width: 0; }
   button:focus-visible { outline: 2px solid #E8843C; outline-offset: 2px; }
   input:focus, textarea:focus, select:focus { border-color: #E8843C; }
+  @keyframes ciclo7-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes ciclo7-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.86); opacity: 0.62; } }
+  .ciclo7-dots::after { content: ""; animation: ciclo7-dots 1.4s steps(1) infinite; }
+  @keyframes ciclo7-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } 100% { content: ""; } }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 `;
 
