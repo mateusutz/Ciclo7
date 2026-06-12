@@ -1,6 +1,6 @@
 // Ciclo7 service worker — offline-first for app shell.
 // Bump CACHE_VERSION whenever you change app.js/index.html to force an update.
-const CACHE_VERSION = "ciclo7-v8";
+const CACHE_VERSION = "ciclo7-v9";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -16,6 +16,9 @@ const CDN = [
   "https://unpkg.com/react@18/umd/react.production.min.js",
   "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
   "https://unpkg.com/@babel/standalone@7/babel.min.js",
+  "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",
+  "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js",
+  "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js",
 ];
 
 self.addEventListener("install", (event) => {
