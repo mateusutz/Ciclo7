@@ -1,6 +1,6 @@
 // Ciclo7 service worker — offline-first for app shell.
 // Bump CACHE_VERSION whenever you change app.js/index.html to force an update.
-const CACHE_VERSION = "ciclo7-v10";
+const CACHE_VERSION = "ciclo7-v11";
 const APP_SHELL = [
   "./",
   "./index.html",
