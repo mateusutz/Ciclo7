@@ -6,6 +6,27 @@ const { useState, useEffect, useMemo, useCallback, useRef } = React;
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const PALETTE = ["#E8843C", "#4C9BD6", "#C77DD6", "#5EB87A", "#E3C84C", "#E36A5A"];
+const MUSCLES = {
+  peito: { name: "Peito", color: "#E8843C" },
+  costas: { name: "Costas", color: "#4C9BD6" },
+  ombros: { name: "Ombros", color: "#C77DD6" },
+  biceps: { name: "Bíceps", color: "#5EB87A" },
+  triceps: { name: "Tríceps", color: "#E3C84C" },
+  trapezio: { name: "Trapézio", color: "#6FAFD6" },
+  antebraco: { name: "Antebraços", color: "#8FCBA0" },
+  abdomen: { name: "Abdômen", color: "#E36A5A" },
+  anterior: { name: "Anterior de coxa", color: "#D69B4C" },
+  posterior: { name: "Posterior de coxa", color: "#A0C77D" },
+  gluteos: { name: "Glúteos", color: "#D67DA8" },
+  panturrilha: { name: "Panturrilhas", color: "#7D9BD6" },
+  adutores: { name: "Adutores", color: "#C98FD6" },
+  flexores: { name: "Flexores do quadril", color: "#D6A77D" },
+  lombar: { name: "Lombar/eretores", color: "#9B8FD6" },
+};
+const MUSCLE_ORDER = ["peito","costas","ombros","biceps","triceps","trapezio","antebraco","abdomen","anterior","posterior","gluteos","panturrilha","adutores","flexores","lombar"];
+const muscleName = (id) => (MUSCLES[id] ? MUSCLES[id].name : id);
+const muscleColor = (id) => (MUSCLES[id] ? MUSCLES[id].color : "#8a8a92");
+const exMuscles = (ex) => (ex && ex.muscles) ? ex.muscles : { p: "", s: [] };
 const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const ytId = (url) => {
   if (!url) return null;
@@ -62,13 +83,13 @@ const DEFAULT_SESSIONS = {
     tag: "A1",
     accent: "#E8843C",
     exercises: [
-      { id: "a1e1", name: "Supino reto com halteres", sets: 4, reps: "8-12", rest: "90s", warn: "Halteres em vez de barra dão liberdade pro ombro esquerdo encontrar a trajetória natural. Comece leve pra sentir a estabilidade." },
-      { id: "a1e2", name: "Supino inclinado na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", note: "Ênfase em peito superior — prioridade sua." },
-      { id: "a1e3", name: "Crucifixo na máquina (peck deck)", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "a1e4", name: "Crossover na polia (de cima pra baixo)", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "a1e5", name: "Tríceps na polia com barra", sets: 3, reps: "10-12", rest: "60s" },
-      { id: "a1e6", name: "Tríceps francês com halter (sentado)", sets: 3, reps: "10-12", rest: "60s" },
-      { id: "a1e7", name: "Tríceps coice na polia", sets: 3, reps: "12-15", rest: "45s" },
+      { id: "a1e1", name: "Supino reto com halteres", sets: 4, reps: "8-12", rest: "90s", warn: "Halteres em vez de barra dão liberdade pro ombro esquerdo encontrar a trajetória natural. Comece leve pra sentir a estabilidade.", muscles: { p: "peito", s: ["triceps", "ombros"] } },
+      { id: "a1e2", name: "Supino inclinado na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", note: "Ênfase em peito superior — prioridade sua.", muscles: { p: "peito", s: ["triceps", "ombros"] } },
+      { id: "a1e3", name: "Crucifixo na máquina (peck deck)", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "peito", s: [] } },
+      { id: "a1e4", name: "Crossover na polia (de cima pra baixo)", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "peito", s: [] } },
+      { id: "a1e5", name: "Tríceps na polia com barra", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "triceps", s: [] } },
+      { id: "a1e6", name: "Tríceps francês com halter (sentado)", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "triceps", s: [] } },
+      { id: "a1e7", name: "Tríceps coice na polia", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "triceps", s: [] } },
     ],
   },
   B1: {
@@ -76,13 +97,13 @@ const DEFAULT_SESSIONS = {
     tag: "B1",
     accent: "#4C9BD6",
     exercises: [
-      { id: "b1e1", name: "Puxada frontal na máquina/polia", sets: 4, reps: "8-12", rest: "90s" },
-      { id: "b1e2", name: "Remada baixa sentado na polia", sets: 4, reps: "10-12", rest: "90s", warn: "Mantenha o tronco estável e evite puxar com tranco no final — protege o ombro esquerdo." },
-      { id: "b1e3", name: "Remada na máquina (apoiado no peito)", sets: 3, reps: "10-12", rest: "60s", note: "O apoio no peito tira a lombar e o quadril da jogada." },
-      { id: "b1e4", name: "Pulldown com braço estendido na polia", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "b1e5", name: "Rosca direta com barra W", sets: 3, reps: "10-12", rest: "60s" },
-      { id: "b1e6", name: "Rosca alternada com halteres (sentado)", sets: 3, reps: "10-12", rest: "60s" },
-      { id: "b1e7", name: "Rosca martelo na polia", sets: 3, reps: "12-15", rest: "45s" },
+      { id: "b1e1", name: "Puxada frontal na máquina/polia", sets: 4, reps: "8-12", rest: "90s", muscles: { p: "costas", s: ["biceps"] } },
+      { id: "b1e2", name: "Remada baixa sentado na polia", sets: 4, reps: "10-12", rest: "90s", warn: "Mantenha o tronco estável e evite puxar com tranco no final — protege o ombro esquerdo.", muscles: { p: "costas", s: ["biceps", "trapezio"] } },
+      { id: "b1e3", name: "Remada na máquina (apoiado no peito)", sets: 3, reps: "10-12", rest: "60s", note: "O apoio no peito tira a lombar e o quadril da jogada.", muscles: { p: "costas", s: ["biceps", "trapezio"] } },
+      { id: "b1e4", name: "Pulldown com braço estendido na polia", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "costas", s: [] } },
+      { id: "b1e5", name: "Rosca direta com barra W", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "biceps", s: ["antebraco"] } },
+      { id: "b1e6", name: "Rosca alternada com halteres (sentado)", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "biceps", s: ["antebraco"] } },
+      { id: "b1e7", name: "Rosca martelo na polia", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "biceps", s: ["antebraco"] } },
     ],
   },
   C1: {
@@ -90,13 +111,13 @@ const DEFAULT_SESSIONS = {
     tag: "C1",
     accent: "#C77DD6",
     exercises: [
-      { id: "c1e1", name: "Desenvolvimento na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", warn: "Máquina em vez de halteres/barra livre pro ombro esquerdo trabalhar numa trajetória guiada e estável. Prioridade sua." },
-      { id: "c1e2", name: "Elevação lateral com halteres", sets: 4, reps: "12-15", rest: "60s", note: "O exercício rei pro deltoide medial — largura do ombro." },
-      { id: "c1e3", name: "Elevação lateral na polia (unilateral)", sets: 3, reps: "12-15", rest: "45s", note: "Faça o lado esquerdo primeiro e iguale o volume do direito a ele." },
-      { id: "c1e4", name: "Crucifixo invertido na máquina (peck deck invertido)", sets: 3, reps: "12-15", rest: "60s", note: "Deltoide posterior — costuma ser fraco e ajuda na saúde do ombro." },
-      { id: "c1e5", name: "Elevação frontal na polia", sets: 3, reps: "12-15", rest: "45s" },
-      { id: "c1e6", name: "Abdominal na máquina", sets: 3, reps: "12-15", rest: "45s" },
-      { id: "c1e7", name: "Prancha", sets: 3, reps: "falha", rest: "45s", warn: "Mantenha o quadril neutro, sem deixar cair. Se incomodar o quadril, troque por abdominal supra no solo." },
+      { id: "c1e1", name: "Desenvolvimento na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", warn: "Máquina em vez de halteres/barra livre pro ombro esquerdo trabalhar numa trajetória guiada e estável. Prioridade sua.", muscles: { p: "ombros", s: ["triceps"] } },
+      { id: "c1e2", name: "Elevação lateral com halteres", sets: 4, reps: "12-15", rest: "60s", note: "O exercício rei pro deltoide medial — largura do ombro.", muscles: { p: "ombros", s: [] } },
+      { id: "c1e3", name: "Elevação lateral na polia (unilateral)", sets: 3, reps: "12-15", rest: "45s", note: "Faça o lado esquerdo primeiro e iguale o volume do direito a ele.", muscles: { p: "ombros", s: [] } },
+      { id: "c1e4", name: "Crucifixo invertido na máquina (peck deck invertido)", sets: 3, reps: "12-15", rest: "60s", note: "Deltoide posterior — costuma ser fraco e ajuda na saúde do ombro.", muscles: { p: "ombros", s: ["trapezio"] } },
+      { id: "c1e5", name: "Elevação frontal na polia", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "ombros", s: [] } },
+      { id: "c1e6", name: "Abdominal na máquina", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "abdomen", s: [] } },
+      { id: "c1e7", name: "Prancha", sets: 3, reps: "falha", rest: "45s", warn: "Mantenha o quadril neutro, sem deixar cair. Se incomodar o quadril, troque por abdominal supra no solo.", muscles: { p: "abdomen", s: ["lombar"] } },
     ],
   },
   A2: {
@@ -104,13 +125,13 @@ const DEFAULT_SESSIONS = {
     tag: "A2",
     accent: "#E8843C",
     exercises: [
-      { id: "a2e1", name: "Supino reto na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s" },
-      { id: "a2e2", name: "Supino inclinado com halteres", sets: 4, reps: "8-12", rest: "90s", warn: "Mesma lógica de liberdade pro ombro esquerdo." },
-      { id: "a2e3", name: "Crossover na polia (de baixo pra cima)", sets: 3, reps: "12-15", rest: "60s", note: "Pega o peito superior por outro ângulo." },
-      { id: "a2e4", name: "Crucifixo com halteres no banco reto", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "a2e5", name: "Tríceps testa com barra W", sets: 3, reps: "10-12", rest: "60s" },
-      { id: "a2e6", name: "Tríceps na polia com corda", sets: 3, reps: "12-15", rest: "45s" },
-      { id: "a2e7", name: "Mergulho assistido na máquina", sets: 3, reps: "10-12", rest: "60s" },
+      { id: "a2e1", name: "Supino reto na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", muscles: { p: "peito", s: ["triceps", "ombros"] } },
+      { id: "a2e2", name: "Supino inclinado com halteres", sets: 4, reps: "8-12", rest: "90s", warn: "Mesma lógica de liberdade pro ombro esquerdo.", muscles: { p: "peito", s: ["triceps", "ombros"] } },
+      { id: "a2e3", name: "Crossover na polia (de baixo pra cima)", sets: 3, reps: "12-15", rest: "60s", note: "Pega o peito superior por outro ângulo.", muscles: { p: "peito", s: [] } },
+      { id: "a2e4", name: "Crucifixo com halteres no banco reto", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "peito", s: [] } },
+      { id: "a2e5", name: "Tríceps testa com barra W", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "triceps", s: [] } },
+      { id: "a2e6", name: "Tríceps na polia com corda", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "triceps", s: [] } },
+      { id: "a2e7", name: "Mergulho assistido na máquina", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "triceps", s: ["peito", "ombros"] } },
     ],
   },
   B2: {
@@ -118,13 +139,13 @@ const DEFAULT_SESSIONS = {
     tag: "B2",
     accent: "#4C9BD6",
     exercises: [
-      { id: "b2e1", name: "Puxada com pegada neutra (triângulo)", sets: 4, reps: "8-12", rest: "90s" },
-      { id: "b2e2", name: "Remada cavalinho ou remada T (apoio no peito)", sets: 4, reps: "10-12", rest: "90s" },
-      { id: "b2e3", name: "Remada unilateral na polia baixa", sets: 3, reps: "10-12", rest: "60s", note: "Trabalha cada lado isolado, equilibra o esquerdo." },
-      { id: "b2e4", name: "Puxada na polia com braço estendido", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "b2e5", name: "Rosca scott na máquina", sets: 3, reps: "10-12", rest: "60s" },
-      { id: "b2e6", name: "Rosca direta na polia baixa", sets: 3, reps: "10-12", rest: "60s" },
-      { id: "b2e7", name: "Rosca martelo com halteres", sets: 3, reps: "12-15", rest: "45s" },
+      { id: "b2e1", name: "Puxada com pegada neutra (triângulo)", sets: 4, reps: "8-12", rest: "90s", muscles: { p: "costas", s: ["biceps"] } },
+      { id: "b2e2", name: "Remada cavalinho ou remada T (apoio no peito)", sets: 4, reps: "10-12", rest: "90s", muscles: { p: "costas", s: ["biceps", "trapezio"] } },
+      { id: "b2e3", name: "Remada unilateral na polia baixa", sets: 3, reps: "10-12", rest: "60s", note: "Trabalha cada lado isolado, equilibra o esquerdo.", muscles: { p: "costas", s: ["biceps"] } },
+      { id: "b2e4", name: "Puxada na polia com braço estendido", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "costas", s: [] } },
+      { id: "b2e5", name: "Rosca scott na máquina", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "biceps", s: [] } },
+      { id: "b2e6", name: "Rosca direta na polia baixa", sets: 3, reps: "10-12", rest: "60s", muscles: { p: "biceps", s: ["antebraco"] } },
+      { id: "b2e7", name: "Rosca martelo com halteres", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "biceps", s: ["antebraco"] } },
     ],
   },
   C2: {
@@ -132,13 +153,13 @@ const DEFAULT_SESSIONS = {
     tag: "C2",
     accent: "#C77DD6",
     exercises: [
-      { id: "c2e1", name: "Desenvolvimento com halteres sentado", sets: 4, reps: "8-12", rest: "90s", warn: "Se sentir o ombro esquerdo instável, volte pra máquina. Só use halteres se a sensação estiver boa. Prioridade sua." },
-      { id: "c2e2", name: "Elevação lateral na máquina", sets: 4, reps: "12-15", rest: "60s" },
-      { id: "c2e3", name: "Elevação lateral com halteres (sentado)", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "c2e4", name: "Crucifixo invertido na polia (cross)", sets: 3, reps: "12-15", rest: "45s" },
-      { id: "c2e5", name: "Encolhimento com halteres (trapézio)", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "c2e6", name: "Abdominal na polia alta (ajoelhado)", sets: 3, reps: "12-15", rest: "45s" },
-      { id: "c2e7", name: "Elevação de pernas suspenso ou no banco", sets: 3, reps: "12-15", rest: "45s", warn: "Faça controlado e sem balanço. Se puxar o quadril, troque por abdominal infra no solo com amplitude curta." },
+      { id: "c2e1", name: "Desenvolvimento com halteres sentado", sets: 4, reps: "8-12", rest: "90s", warn: "Se sentir o ombro esquerdo instável, volte pra máquina. Só use halteres se a sensação estiver boa. Prioridade sua.", muscles: { p: "ombros", s: ["triceps"] } },
+      { id: "c2e2", name: "Elevação lateral na máquina", sets: 4, reps: "12-15", rest: "60s", muscles: { p: "ombros", s: [] } },
+      { id: "c2e3", name: "Elevação lateral com halteres (sentado)", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "ombros", s: [] } },
+      { id: "c2e4", name: "Crucifixo invertido na polia (cross)", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "ombros", s: ["trapezio"] } },
+      { id: "c2e5", name: "Encolhimento com halteres (trapézio)", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "trapezio", s: [] } },
+      { id: "c2e6", name: "Abdominal na polia alta (ajoelhado)", sets: 3, reps: "12-15", rest: "45s", muscles: { p: "abdomen", s: [] } },
+      { id: "c2e7", name: "Elevação de pernas suspenso ou no banco", sets: 3, reps: "12-15", rest: "45s", warn: "Faça controlado e sem balanço. Se puxar o quadril, troque por abdominal infra no solo com amplitude curta.", muscles: { p: "abdomen", s: ["flexores"] } },
     ],
   },
   D: {
@@ -147,13 +168,13 @@ const DEFAULT_SESSIONS = {
     accent: "#5EB87A",
     headerWarn: "Sessão inteira pensada pra poupar o quadril pós-artroscopia. Nada de carga axial pesada nem amplitude extrema. Se algum movimento gerar dor (não confunda com esforço muscular normal), pare.",
     exercises: [
-      { id: "de1", name: "Cadeira extensora", sets: 4, reps: "12-15", rest: "75s", note: "Quadríceps com zero estresse de quadril." },
-      { id: "de2", name: "Leg press com amplitude controlada (parcial)", sets: 4, reps: "12-15", rest: "90s", warn: "Limite a descida ao ponto antes do quadril 'encaixar' ou sentir tensão. Amplitude curta e segura é o objetivo." },
-      { id: "de3", name: "Mesa flexora", sets: 4, reps: "12-15", rest: "75s", note: "Posteriores de coxa." },
-      { id: "de4", name: "Cadeira flexora sentado", sets: 3, reps: "12-15", rest: "60s" },
-      { id: "de5", name: "Cadeira adutora", sets: 3, reps: "15-20", rest: "45s", warn: "Amplitude moderada, sem forçar o final do movimento." },
-      { id: "de6", name: "Panturrilha na máquina (em pé)", sets: 4, reps: "15-20", rest: "45s" },
-      { id: "de7", name: "Panturrilha sentado", sets: 3, reps: "15-20", rest: "45s" },
+      { id: "de1", name: "Cadeira extensora", sets: 4, reps: "12-15", rest: "75s", note: "Quadríceps com zero estresse de quadril.", muscles: { p: "anterior", s: [] } },
+      { id: "de2", name: "Leg press com amplitude controlada (parcial)", sets: 4, reps: "12-15", rest: "90s", warn: "Limite a descida ao ponto antes do quadril 'encaixar' ou sentir tensão. Amplitude curta e segura é o objetivo.", muscles: { p: "anterior", s: ["gluteos", "posterior"] } },
+      { id: "de3", name: "Mesa flexora", sets: 4, reps: "12-15", rest: "75s", note: "Posteriores de coxa.", muscles: { p: "posterior", s: [] } },
+      { id: "de4", name: "Cadeira flexora sentado", sets: 3, reps: "12-15", rest: "60s", muscles: { p: "posterior", s: [] } },
+      { id: "de5", name: "Cadeira adutora", sets: 3, reps: "15-20", rest: "45s", warn: "Amplitude moderada, sem forçar o final do movimento.", muscles: { p: "adutores", s: [] } },
+      { id: "de6", name: "Panturrilha na máquina (em pé)", sets: 4, reps: "15-20", rest: "45s", muscles: { p: "panturrilha", s: [] } },
+      { id: "de7", name: "Panturrilha sentado", sets: 3, reps: "15-20", rest: "45s", muscles: { p: "panturrilha", s: [] } },
     ],
   },
 };
@@ -170,7 +191,7 @@ Object.entries(DEFAULT_SESSIONS).forEach(([key, s]) => {
     items: s.exercises.map((e) => ({ exId: e.id, sets: e.sets, reps: e.reps, rest: e.rest })),
   };
   s.exercises.forEach((e) => {
-    DEFAULT_LIBRARY[e.id] = { id: e.id, name: e.name, sets: e.sets, reps: e.reps, rest: e.rest, warn: e.warn || "", note: e.note || "", video: "" };
+    DEFAULT_LIBRARY[e.id] = { id: e.id, name: e.name, sets: e.sets, reps: e.reps, rest: e.rest, warn: e.warn || "", note: e.note || "", video: "", muscles: e.muscles || { p: "", s: [] } };
   });
 });
 const DEFAULT_SCHEDULE = { 0: "C2", 1: "A1", 2: "B1", 3: "C1", 4: "A2", 5: "B2", 6: "D" };
@@ -377,6 +398,16 @@ function App() {
       if (!lb) { lb = DEFAULT_LIBRARY; await storeSet(KEY_LIBRARY, lb); }
       if (!wk) { wk = DEFAULT_WORKOUTS; await storeSet(KEY_WORKOUTS, wk); }
       if (!sc) { sc = DEFAULT_SCHEDULE; await storeSet(KEY_SCHEDULE, sc); }
+      // migração: adiciona muscles a exercícios salvos antes desse recurso
+      let libMigrated = false;
+      Object.values(lb).forEach((ex) => {
+        if (!ex.muscles) {
+          const seed = DEFAULT_LIBRARY[ex.id];
+          ex.muscles = seed ? seed.muscles : { p: "", s: [] };
+          libMigrated = true;
+        }
+      });
+      if (libMigrated) await storeSet(KEY_LIBRARY, lb);
       // migração: formato antigo de checks -> contagem de séries
       let migrated = false;
       Object.entries(pr).forEach(([k, p]) => {
@@ -488,6 +519,20 @@ function App() {
     const sp = sessionProgress(sessionKey);
     const startedAt = p && p.startedAt ? new Date(p.startedAt).getTime() : null;
     const duration = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
+    // volume por grupo muscular: primário conta 1 série, secundário 0.5
+    const muscleSets = {};
+    if (w) {
+      w.items.forEach((it) => {
+        const planned = plannedSets(it);
+        const eff = (p && p.subs && p.subs[it.exId]) || it.exId;
+        const c = Math.min((p && p.sets && p.sets[eff]) || 0, planned);
+        if (c <= 0) return;
+        const ex = lib[eff];
+        const m = exMuscles(ex);
+        if (m.p) muscleSets[m.p] = (muscleSets[m.p] || 0) + c;
+        (m.s || []).forEach((sid) => { muscleSets[sid] = (muscleSets[sid] || 0) + c * 0.5; });
+      });
+    }
     const entry = {
       key: sessionKey,
       name: w ? w.name : sessionKey,
@@ -499,6 +544,7 @@ function App() {
       exTotal: sp.total,
       setsDone: sp.setsDone,
       setsTotal: sp.setsTotal,
+      muscleSets,
       note: (note || "").trim(),
     };
     const nextH = [...history, entry];
@@ -1067,6 +1113,10 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
             </div>
           )}
 
+          {exMuscles(ex).p && (
+            <div style={{ marginTop: 8 }}><MuscleChips muscles={ex.muscles} /></div>
+          )}
+
           {ex.sets > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
               {Array.from({ length: ex.sets }).map((_, i) => {
@@ -1135,6 +1185,32 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
     </div>
   );
 }
+
+const MuscleChips = ({ muscles, size = "sm" }) => {
+  const m = muscles || { p: "", s: [] };
+  const list = [];
+  if (m.p) list.push({ id: m.p, primary: true });
+  (m.s || []).forEach((id) => list.push({ id, primary: false }));
+  if (!list.length) return null;
+  const fs = size === "sm" ? 10.5 : 11.5;
+  const pad = size === "sm" ? "2px 7px" : "3px 9px";
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+      {list.map((it, i) => {
+        const c = muscleColor(it.id);
+        return (
+          <span key={i} style={{
+            fontSize: fs, fontWeight: 700, padding: pad, borderRadius: 6, lineHeight: 1.2,
+            color: it.primary ? "#101013" : c,
+            background: it.primary ? c : "transparent",
+            border: "1px solid " + c + (it.primary ? "" : "55"),
+            opacity: it.primary ? 1 : 0.92,
+          }}>{muscleName(it.id)}</span>
+        );
+      })}
+    </div>
+  );
+};
 
 const Stat = ({ label, value, accent }) => (
   <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
@@ -1350,10 +1426,32 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
 // ============================================================
 function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
   const isNew = !initial;
-  const [draft, setDraft] = useState(() => initial ? { ...initial } : { id: uid("ex_"), name: "", sets: 3, reps: "10-12", rest: "60s", warn: "", note: "", video: "" });
+  const [draft, setDraft] = useState(() => initial ? { ...initial, muscles: initial.muscles ? { p: initial.muscles.p || "", s: [...(initial.muscles.s || [])] } : { p: "", s: [] } } : { id: uid("ex_"), name: "", sets: 3, reps: "10-12", rest: "60s", warn: "", note: "", video: "", muscles: { p: "", s: [] } });
   const [confirmDel, setConfirmDel] = useState(false);
   const [error, setError] = useState("");
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
+
+  const toggleMuscle = (id) => setDraft((d) => {
+    const m = { p: d.muscles.p, s: [...d.muscles.s] };
+    if (m.p === id) {
+      m.p = "";
+      if (!m.s.includes(id)) m.s.push(id);
+    } else if (m.s.includes(id)) {
+      m.s = m.s.filter((x) => x !== id);
+    } else {
+      if (!m.p) m.p = id;
+      else m.s.push(id);
+    }
+    return { ...d, muscles: m };
+  });
+
+  const makePrimary = (id) => setDraft((d) => {
+    const m = { p: id, s: d.muscles.s.filter((x) => x !== id) };
+    if (d.muscles.p && d.muscles.p !== id) m.s = [d.muscles.p, ...m.s];
+    return { ...d, muscles: m };
+  });
+
+  const muscleState = (id) => draft.muscles.p === id ? "p" : (draft.muscles.s.includes(id) ? "s" : "");
 
   const save = () => {
     const name = draft.name.trim();
@@ -1387,6 +1485,42 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
               <input value={draft.rest} onChange={(e) => set({ rest: e.target.value })} placeholder="60s" style={{ ...textInput, textAlign: "center" }} />
             </div>
           </div>
+
+          <label style={labelStyle}>Grupos musculares</label>
+          <div style={{ fontSize: 11.5, color: "#7a7a82", marginBottom: 8, lineHeight: 1.4 }}>
+            Toque pra marcar. 1º toque = <span style={{ color: "#f0f0f2", fontWeight: 700 }}>primário</span>, 2º = secundário, 3º remove. Toque longo não precisa — use "tornar primário" no chip.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+            {MUSCLE_ORDER.map((id) => {
+              const st = muscleState(id);
+              const c = muscleColor(id);
+              return (
+                <button key={id} onClick={() => toggleMuscle(id)} style={{
+                  fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 8, cursor: "pointer",
+                  color: st === "p" ? "#101013" : (st === "s" ? c : "#8a8a92"),
+                  background: st === "p" ? c : (st === "s" ? c + "22" : "#16161b"),
+                  border: "1.5px solid " + (st ? c : "#2a2a30"),
+                  transition: "all .12s",
+                }}>
+                  {st === "p" && "★ "}{muscleName(id)}
+                </button>
+              );
+            })}
+          </div>
+          {draft.muscles.s.length > 0 && (
+            <div style={{ fontSize: 11.5, color: "#7a7a82", marginBottom: 4 }}>
+              Secundários selecionados — toque em um pra tornar primário:
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                {draft.muscles.s.map((id) => (
+                  <button key={id} onClick={() => makePrimary(id)} style={{
+                    fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, cursor: "pointer",
+                    color: muscleColor(id), background: "transparent", border: "1px solid " + muscleColor(id) + "55",
+                  }}>{muscleName(id)} → ★</button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ marginBottom: 16 }} />
 
           <label style={labelStyle}>Vídeo de demonstração (opcional)</label>
           <input value={draft.video || ""} onChange={(e) => set({ video: e.target.value })} placeholder="Cole o link do YouTube" style={{ ...textInput, marginBottom: 4 }} />
@@ -1428,11 +1562,30 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
 // ============================================================
 function LibraryView({ lib, usageCount, onEdit, onNew }) {
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState(""); // id de músculo, "" = todos
+
+  const usedMuscles = useMemo(() => {
+    const present = new Set();
+    Object.values(lib).forEach((ex) => {
+      const m = exMuscles(ex);
+      if (m.p) present.add(m.p);
+      (m.s || []).forEach((x) => present.add(x));
+    });
+    return MUSCLE_ORDER.filter((id) => present.has(id));
+  }, [lib]);
+
   const list = useMemo(() => {
     const all = Object.values(lib).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     const term = q.trim().toLowerCase();
-    return term ? all.filter((e) => e.name.toLowerCase().includes(term)) : all;
-  }, [lib, q]);
+    return all.filter((e) => {
+      if (term && !e.name.toLowerCase().includes(term)) return false;
+      if (filter) {
+        const m = exMuscles(e);
+        if (m.p !== filter && !(m.s || []).includes(filter)) return false;
+      }
+      return true;
+    });
+  }, [lib, q, filter]);
 
   return (
     <div style={{ padding: "22px 18px 30px" }}>
@@ -1443,9 +1596,18 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
         </button>
       </div>
 
-      <div style={{ position: "relative", marginBottom: 14 }}>
+      <div style={{ position: "relative", marginBottom: 12 }}>
         <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#5a5a62", display: "flex" }}><Icon.Search /></span>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar exercício…" style={{ ...textInput, paddingLeft: 36 }} />
+      </div>
+
+      <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 12, WebkitOverflowScrolling: "touch" }}>
+        <button onClick={() => setFilter("")} style={filterChip(filter === "", "#E8843C")}>Todos</button>
+        {usedMuscles.map((id) => (
+          <button key={id} onClick={() => setFilter(filter === id ? "" : id)} style={filterChip(filter === id, muscleColor(id))}>
+            {muscleName(id)}
+          </button>
+        ))}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1459,7 +1621,8 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
                   {ex.warn ? <span style={{ color: "#E8843C", display: "flex", flexShrink: 0 }}><Icon.Warn width={13} height={13} /></span> : null}
                   {ytId(ex.video) ? <span style={{ color: "#5EB87A", display: "flex", flexShrink: 0 }}><Icon.Play width={12} height={12} /></span> : null}
                 </span>
-                <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 3 }}>
+                {exMuscles(ex).p ? <span style={{ display: "block", marginTop: 7 }}><MuscleChips muscles={ex.muscles} /></span> : null}
+                <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 6 }}>
                   {ex.sets}× {ex.reps} · {ex.rest}{uses > 0 ? " · em " + uses + " treino" + (uses > 1 ? "s" : "") : ""}
                 </span>
               </span>
@@ -1517,6 +1680,24 @@ function ProgressView({ logs, lib, workouts, history }) {
   const [expandedSession, setExpandedSession] = useState(null);
   const [showAllSessions, setShowAllSessions] = useState(false);
 
+  // volume por grupo muscular nas últimas 4 semanas (séries ponderadas)
+  const muscleVolume = useMemo(() => {
+    const MS_WEEK = 7 * 24 * 3600 * 1000;
+    const cur = weekStartMs(new Date());
+    const minStart = cur - 3 * MS_WEEK; // 4 semanas: atual + 3 anteriores
+    const totals = {};
+    history.forEach((h) => {
+      if (!h.muscleSets) return;
+      if (weekStartMs(h.date) < minStart) return;
+      Object.entries(h.muscleSets).forEach(([mid, v]) => {
+        totals[mid] = (totals[mid] || 0) + v;
+      });
+    });
+    const rows = MUSCLE_ORDER.filter((id) => totals[id] > 0).map((id) => ({ id, sets: totals[id] }));
+    rows.sort((a, b) => b.sets - a.sets);
+    return rows.length ? rows : null;
+  }, [history]);
+
   const sessionsDesc = useMemo(() => [...history].reverse(), [history]);
   const sessionsShown = showAllSessions ? sessionsDesc : sessionsDesc.slice(0, 8);
 
@@ -1532,6 +1713,16 @@ function ProgressView({ logs, lib, workouts, history }) {
           <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 12 }}>Volume semanal (séries)</div>
           <div style={{ ...card, padding: "16px 14px 10px", marginBottom: 22 }}>
             <WeeklyBars buckets={weekly} />
+          </div>
+        </React.Fragment>
+      )}
+
+      {muscleVolume && (
+        <React.Fragment>
+          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>Volume por grupo · 4 semanas</div>
+          <div style={{ fontSize: 11.5, color: "#7a7a82", marginBottom: 12, lineHeight: 1.4 }}>Séries ponderadas — primário conta 1, secundário 0,5.</div>
+          <div style={{ ...card, padding: "16px 16px 14px", marginBottom: 22 }}>
+            <MuscleVolumeBars rows={muscleVolume} />
           </div>
         </React.Fragment>
       )}
@@ -1730,6 +1921,28 @@ function BackupCard() {
   );
 }
 
+function MuscleVolumeBars({ rows }) {
+  const max = Math.max(...rows.map((r) => r.sets), 1);
+  const fmt = (n) => Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+      {rows.map((r) => {
+        const c = muscleColor(r.id);
+        const pct = (r.sets / max) * 100;
+        return (
+          <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 96, flexShrink: 0, fontSize: 12, fontWeight: 600, color: "#c0c0c6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{muscleName(r.id)}</span>
+            <div style={{ flex: 1, height: 18, background: "#16161b", borderRadius: 6, overflow: "hidden", position: "relative" }}>
+              <div style={{ width: pct + "%", height: "100%", background: c, borderRadius: 6, transition: "width .4s", minWidth: 3 }} />
+            </div>
+            <span style={{ width: 30, flexShrink: 0, textAlign: "right", fontSize: 12.5, fontWeight: 800, color: "#e0e0e4", fontVariantNumeric: "tabular-nums" }}>{fmt(r.sets)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function MetricCard({ value, label, accent, icon }) {
   return (
     <div style={{ ...card, flex: 1, padding: 16 }}>
@@ -1799,6 +2012,14 @@ const chipBtn = (color, weight) => ({
   display: "flex", alignItems: "center", gap: 5, background: "#1a1a1f",
   border: "1px solid #2a2a30", borderRadius: 7, padding: "4px 9px",
   color: color, fontSize: 12, fontWeight: weight || 600, cursor: "pointer",
+});
+const filterChip = (active, color) => ({
+  flexShrink: 0, whiteSpace: "nowrap", cursor: "pointer",
+  fontSize: 12.5, fontWeight: 700, padding: "7px 13px", borderRadius: 999,
+  color: active ? "#101013" : color,
+  background: active ? color : "transparent",
+  border: "1.5px solid " + (active ? color : color + "44"),
+  transition: "all .12s",
 });
 const inputStyle = {
   width: 64, padding: "9px 10px", background: "#0d0d0f", border: "1px solid #2a2a30",
