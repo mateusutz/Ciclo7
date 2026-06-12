@@ -30,6 +30,30 @@
   <!-- React via CDN (no build step needed) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Firebase (compat build: expõe `firebase` global, funciona sem bundler) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+    // Configuração pública do projeto (protegida pelas Security Rules do Firestore)
+    var firebaseConfig = {
+      apiKey: "AIzaSyDlEJx9Npbn7JMqsmuY3UEA-8Me94Ac8o0",
+      authDomain: "ciclo7.firebaseapp.com",
+      projectId: "ciclo7",
+      storageBucket: "ciclo7.firebasestorage.app",
+      messagingSenderId: "1062618499002",
+      appId: "1:1062618499002:web:0feca5e08893dd9878ff83"
+    };
+    firebase.initializeApp(firebaseConfig);
+    // Cache offline nativo: o app funciona sem internet e sincroniza ao reconectar
+    firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(function (e) {
+      console.warn("Persistência offline indisponível:", e && e.code);
+    });
+    window.fbAuth = firebase.auth();
+    window.fbDb = firebase.firestore();
+  </script>
+
   <!-- Babel transpiles the JSX in app.js in the browser -->
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" src="app.js" data-presets="react"></script>
