@@ -421,6 +421,12 @@ function App() {
         }
       });
       if (migrated) await storeSet(KEY_PROGRESS, pr);
+      // migração: garante id único em cada entrada de histórico
+      let histMigrated = false;
+      hs.forEach((h, idx) => {
+        if (!h.id) { h.id = "h_legacy_" + idx + "_" + (h.date || ""); histMigrated = true; }
+      });
+      if (histMigrated) await storeSet(KEY_HISTORY, hs);
       setLogs(lg); setProgress(pr); setHistory(hs);
       setLib(lb); setWorkouts(wk); setSchedule(sc);
       setLoaded(true);
@@ -543,6 +549,7 @@ function App() {
       });
     }
     const entry = {
+      id: uid("h_"),
       key: sessionKey,
       name: w ? w.name : sessionKey,
       tag: w ? w.tag : "",
@@ -566,6 +573,12 @@ function App() {
     setPendingFinish(null);
     setActiveWorkout(null);
     setTab("today");
+  };
+
+  const deleteHistoryEntry = async (id) => {
+    const nextH = history.filter((h) => h.id !== id);
+    setHistory(nextH);
+    await storeSet(KEY_HISTORY, nextH);
   };
 
   const logSet = async (exId, entry) => {
@@ -685,7 +698,7 @@ function App() {
             onNew={() => setEditingExercise({ ex: null })}
           />
         ) : (
-          <ProgressView logs={logs} lib={lib} workouts={workouts} history={history} />
+          <ProgressView logs={logs} lib={lib} workouts={workouts} history={history} onDeleteSession={deleteHistoryEntry} />
         )}
       </main>
 
@@ -1666,7 +1679,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
 // ============================================================
 // PROGRESS VIEW
 // ============================================================
-function ProgressView({ logs, lib, workouts, history }) {
+function ProgressView({ logs, lib, workouts, history, onDeleteSession }) {
   const metaByEx = useMemo(() => {
     const m = {};
     Object.values(workouts).forEach((w) => w.items.forEach((it) => {
@@ -1706,6 +1719,7 @@ function ProgressView({ logs, lib, workouts, history }) {
   const [expanded, setExpanded] = useState(null);
   const [expandedSession, setExpandedSession] = useState(null);
   const [showAllSessions, setShowAllSessions] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // id da sessão aguardando confirmação
 
   // volume por grupo muscular nas últimas 4 semanas (séries ponderadas)
   const muscleVolume = useMemo(() => {
@@ -1761,8 +1775,9 @@ function ProgressView({ logs, lib, workouts, history }) {
             {sessionsShown.map((h, i) => {
               const accent = h.accent || (workouts[h.key] ? workouts[h.key].accent : "#8a8a92");
               const hasDetails = h.note || h.duration != null;
-              const sid = h.date + "-" + i;
+              const sid = h.id || (h.date + "-" + i);
               const isOpen = expandedSession === sid;
+              const isConfirming = confirmDelete === sid;
               const d = new Date(h.date);
               return (
                 <div key={sid} style={{ ...card, padding: 0, overflow: "hidden" }}>
@@ -1780,9 +1795,23 @@ function ProgressView({ logs, lib, workouts, history }) {
                       {h.duration != null && <span style={{ fontSize: 12.5, fontWeight: 800, color: "#b0b0b8" }}>{fmtDur(h.duration)}</span>}
                       {h.note && <span style={{ color: "#E3C84C", display: "flex" }}><Icon.Pencil width={12} height={12} /></span>}
                     </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); setConfirmDelete(isConfirming ? null : sid); }}
+                      style={{ ...iconBtn, color: isConfirming ? "#e36a5a" : "#5a5a62", flexShrink: 0, marginLeft: 2 }}
+                      aria-label="Excluir sessão"
+                    ><Icon.Trash width={15} height={15} /></span>
                   </button>
                   {isOpen && h.note && (
                     <div style={{ padding: "0 14px 13px 57px", fontSize: 13, color: "#c9c9ce", lineHeight: 1.5 }}>{h.note}</div>
+                  )}
+                  {isConfirming && (
+                    <div style={{ padding: "0 14px 13px", display: "flex", alignItems: "center", gap: 10, borderTop: "1px solid #1f1f24", paddingTop: 12 }}>
+                      <span style={{ flex: 1, fontSize: 12.5, color: "#b8736a", lineHeight: 1.4 }}>Excluir esta sessão do histórico? Não afeta as cargas já registradas.</span>
+                      <button onClick={() => setConfirmDelete(null)} style={{ background: "none", border: "1px solid #2e2e36", borderRadius: 8, padding: "7px 12px", color: "#9a9aa2", fontSize: 12.5, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Cancelar</button>
+                      <button onClick={() => { onDeleteSession(sid); setConfirmDelete(null); if (isOpen) setExpandedSession(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 8, padding: "7px 12px", color: "#101013", fontSize: 12.5, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
+                    </div>
                   )}
                 </div>
               );
