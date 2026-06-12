@@ -1026,10 +1026,12 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
 
   const save = () => {
     if (!weight) return;
-    const setNum = Math.min(Math.max(setsDone, 1), ex.sets || 1);
+    const setNum = setsDone + 1;
+    if (setNum > ex.sets) return;
     logSet(ex.id, { weight: parseFloat(weight), reps: reps || ex.reps, set: setNum });
+    onSetChange(setNum); // marca a série como concluída
     setWeight(""); setReps("");
-    setOpen(false);
+    if (setNum >= ex.sets) setOpen(false); // fecha só na última série
   };
 
   const tapSet = (i) => {
@@ -1119,7 +1121,7 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
 
           {open && (
             <div style={{ display: "flex", gap: 8, marginTop: 11, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: accent, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 6, padding: "5px 8px" }}>S{Math.min(Math.max(setsDone, 1), ex.sets || 1)}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: accent, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 6, padding: "5px 8px" }}>S{Math.min(setsDone + 1, ex.sets)}</span>
               <input inputMode="decimal" placeholder={last ? String(last.weight) : "kg"} value={weight} onChange={(e) => setWeight(e.target.value)} style={inputStyle} />
               <span style={{ color: "#5a5a62" }}>×</span>
               <input inputMode="numeric" placeholder="reps" value={reps} onChange={(e) => setReps(e.target.value)} style={inputStyle} />
