@@ -197,7 +197,7 @@ Object.entries(DEFAULT_SESSIONS).forEach(([key, s]) => {
 const DEFAULT_SCHEDULE = { 0: "C2", 1: "A1", 2: "B1", 3: "C1", 4: "A2", 5: "B2", 6: "D" };
 
 // ============================================================
-// STORAGE (localStorage)
+// STORAGE — Firestore (nuvem, offline-first) com fallback localStorage
 // ============================================================
 const NS = "ciclo7:";
 const KEY_LOGS = "logs:v1";
@@ -208,7 +208,25 @@ const KEY_SCHEDULE = "schedule:v1";
 const KEY_HISTORY = "history:v1";
 const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY];
 
+// uid do usuário logado; setado pelo App ao autenticar. Sem uid, cai no localStorage.
+let CURRENT_UID = null;
+const setCurrentUid = (uid) => { CURRENT_UID = uid; };
+const docRef = (key) => window.fbDb.collection("users").doc(CURRENT_UID).collection("state").doc(key.replace(/:/g, "_"));
+
 async function storeGet(key, fallback) {
+  if (CURRENT_UID && window.fbDb) {
+    try {
+      const snap = await docRef(key).get();
+      if (snap.exists) {
+        const d = snap.data();
+        return d && "value" in d ? d.value : fallback;
+      }
+      return fallback;
+    } catch (e) {
+      console.warn("Firestore get falhou, usando cache local:", key, e && e.code);
+      // fallback de leitura local
+    }
+  }
   try {
     const raw = localStorage.getItem(NS + key);
     return raw != null ? JSON.parse(raw) : fallback;
@@ -216,11 +234,17 @@ async function storeGet(key, fallback) {
     return fallback;
   }
 }
+
 async function storeSet(key, value) {
-  try {
-    localStorage.setItem(NS + key, JSON.stringify(value));
-  } catch (e) {
-    console.error("storage set failed", e);
+  // sempre espelha no localStorage (boot rápido / fallback offline sem login)
+  try { localStorage.setItem(NS + key, JSON.stringify(value)); } catch (e) {}
+  if (CURRENT_UID && window.fbDb) {
+    try {
+      // não dá await no set: a persistência offline resolve a fila e sincroniza sozinha
+      docRef(key).set({ value: value, updatedAt: Date.now() });
+    } catch (e) {
+      console.warn("Firestore set falhou:", key, e && e.code);
+    }
   }
 }
 
@@ -272,6 +296,7 @@ const Icon = {
   Refresh: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /><path d="M3 21v-5h5" /></svg>),
   Download: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>),
   Upload: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>),
+  Logout: (p) => (<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>),
 };
 
 // ============================================================
@@ -366,6 +391,100 @@ function Ring({ pct, accent, size = 132, stroke = 11 }) {
   );
 }
 
+
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+function LoginScreen() {
+  const [mode, setMode] = useState("in"); // "in" = entrar, "up" = criar conta
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const mapErr = (code) => {
+    const m = {
+      "auth/invalid-email": "Email inválido.",
+      "auth/missing-password": "Digite a senha.",
+      "auth/weak-password": "A senha precisa de pelo menos 6 caracteres.",
+      "auth/email-already-in-use": "Esse email já tem conta. Tente entrar.",
+      "auth/invalid-credential": "Email ou senha incorretos.",
+      "auth/wrong-password": "Email ou senha incorretos.",
+      "auth/user-not-found": "Não achei conta com esse email.",
+      "auth/too-many-requests": "Muitas tentativas. Aguarde um pouco.",
+      "auth/popup-closed-by-user": "Login cancelado.",
+      "auth/network-request-failed": "Sem conexão. Verifique a internet.",
+    };
+    return m[code] || "Algo deu errado. Tente de novo.";
+  };
+
+  const google = async () => {
+    setErr(""); setBusy(true);
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await window.fbAuth.signInWithPopup(provider);
+    } catch (e) {
+      if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
+        try { const p = new firebase.auth.GoogleAuthProvider(); await window.fbAuth.signInWithRedirect(p); return; } catch (e2) { setErr(mapErr(e2 && e2.code)); }
+      } else {
+        setErr(mapErr(e && e.code));
+      }
+      setBusy(false);
+    }
+  };
+
+  const emailAuth = async () => {
+    setErr(""); setBusy(true);
+    try {
+      if (mode === "up") await window.fbAuth.createUserWithEmailAndPassword(email.trim(), pass);
+      else await window.fbAuth.signInWithEmailAndPassword(email.trim(), pass);
+    } catch (e) {
+      setErr(mapErr(e && e.code));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ ...root, alignItems: "center", justifyContent: "center", display: "flex", padding: "0 26px" }}>
+      <style>{globalCss}</style>
+      <div style={{ width: "100%", maxWidth: 360 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, justifyContent: "center", marginBottom: 6 }}>
+          <span style={{ color: "#E8843C", display: "flex" }}><Icon.Dumbbell width={30} height={30} /></span>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 40, letterSpacing: 0.5, textTransform: "uppercase", lineHeight: 1 }}>Ciclo<span style={{ color: "#E8843C" }}>7</span></span>
+        </div>
+        <p style={{ textAlign: "center", color: "#7a7a82", fontSize: 13.5, margin: "0 0 30px" }}>Seu treino, em qualquer aparelho.</p>
+
+        <button onClick={google} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#fff", color: "#1a1a1a", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.98 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+          Continuar com Google
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
+          <div style={{ flex: 1, height: 1, background: "#26262b" }} />
+          <span style={{ fontSize: 12, color: "#5a5a62", fontWeight: 600 }}>ou</span>
+          <div style={{ flex: 1, height: 1, background: "#26262b" }} />
+        </div>
+
+        <input type="email" inputMode="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); }} style={{ ...textInput, marginBottom: 10 }} />
+        <input type="password" autoComplete={mode === "up" ? "new-password" : "current-password"} placeholder="Senha" value={pass} onChange={(e) => { setPass(e.target.value); setErr(""); }} onKeyDown={(e) => { if (e.key === "Enter") emailAuth(); }} style={{ ...textInput, marginBottom: 14 }} />
+
+        {err && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center" }}>{err}</div>}
+
+        <button onClick={emailAuth} disabled={busy} style={{ ...primaryBtn("#E8843C"), width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}>
+          {mode === "up" ? "Criar conta" : "Entrar"}
+        </button>
+
+        <div style={{ textAlign: "center", marginTop: 18, fontSize: 13.5, color: "#8a8a92" }}>
+          {mode === "up" ? "Já tem conta? " : "Ainda não tem conta? "}
+          <button onClick={() => { setMode(mode === "up" ? "in" : "up"); setErr(""); }} style={{ background: "none", border: "none", color: "#E8843C", fontWeight: 700, cursor: "pointer", fontSize: 13.5, padding: 0 }}>
+            {mode === "up" ? "Entrar" : "Criar conta"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
 // MAIN APP
 // ============================================================
@@ -384,12 +503,32 @@ function App() {
   const [pendingFinish, setPendingFinish] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
+  // ---------- auth ----------
+  const [authUser, setAuthUser] = useState(undefined); // undefined = verificando, null = deslogado, obj = logado
+  const [authReady, setAuthReady] = useState(false);
+
   // timer global de descanso
   const [timer, setTimer] = useState(null); // { endAt, total, accent, minimized, finished }
   const [now, setNow] = useState(Date.now());
 
+  // observa login/logout
   useEffect(() => {
+    if (!window.fbAuth) { setAuthReady(true); setAuthUser(null); return; }
+    const unsub = window.fbAuth.onAuthStateChanged((u) => {
+      setCurrentUid(u ? u.uid : null);
+      setAuthUser(u || null);
+      setAuthReady(true);
+    });
+    return () => unsub();
+  }, []);
+
+  // carrega os dados quando há usuário logado
+  useEffect(() => {
+    if (!authReady) return;
+    if (!authUser) { setLoaded(false); return; }
+    let cancelled = false;
     (async () => {
+      setLoaded(false);
       const lg = await storeGet(KEY_LOGS, {});
       const pr = await storeGet(KEY_PROGRESS, {});
       const hs = await storeGet(KEY_HISTORY, []);
@@ -427,11 +566,13 @@ function App() {
         if (!h.id) { h.id = "h_legacy_" + idx + "_" + (h.date || ""); histMigrated = true; }
       });
       if (histMigrated) await storeSet(KEY_HISTORY, hs);
+      if (cancelled) return;
       setLogs(lg); setProgress(pr); setHistory(hs);
       setLib(lb); setWorkouts(wk); setSchedule(sc);
       setLoaded(true);
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [authReady, authUser]);
 
   // tick do timer
   useEffect(() => {
@@ -648,6 +789,14 @@ function App() {
     await storeSet(KEY_SCHEDULE, next);
   };
 
+  if (!authReady || authUser === undefined) {
+    return <div style={{ ...root, alignItems: "center", justifyContent: "center", display: "flex" }}><div style={{ color: "#5a5a62" }}>Carregando…</div></div>;
+  }
+
+  if (!authUser) {
+    return <LoginScreen />;
+  }
+
   if (!loaded) {
     return <div style={{ ...root, alignItems: "center", justifyContent: "center", display: "flex" }}><div style={{ color: "#5a5a62" }}>Carregando…</div></div>;
   }
@@ -661,7 +810,10 @@ function App() {
           <span style={{ color: "#E8843C", display: "flex" }}><Icon.Dumbbell /></span>
           <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase" }}>Ciclo<span style={{ color: "#E8843C" }}>7</span></span>
         </div>
-        <div style={{ fontSize: 11, color: "#6a6a72", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>Hipertrofia</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 11, color: "#6a6a72", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>Hipertrofia</div>
+          <button onClick={() => { if (window.fbAuth) window.fbAuth.signOut(); }} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Sair da conta" title="Sair"><Icon.Logout /></button>
+        </div>
       </header>
 
       <main style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -1966,11 +2118,11 @@ function BackupCard() {
     e.target.value = "";
   };
 
-  const confirmImport = () => {
+  const confirmImport = async () => {
     try {
-      Object.entries(pendingImport.data).forEach(([k, v]) => {
-        if (ALL_KEYS.includes(k)) localStorage.setItem(NS + k, JSON.stringify(v));
-      });
+      for (const [k, v] of Object.entries(pendingImport.data)) {
+        if (ALL_KEYS.includes(k)) await storeSet(k, v);
+      }
       window.location.reload();
     } catch (err) {
       setMsg("Erro ao importar. Tenta de novo.");
