@@ -437,6 +437,8 @@ function LoginScreen() {
   const [pass, setPass] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [info, setInfo] = useState(""); // mensagens neutras/positivas
+  const [pendingCred, setPendingCred] = useState(null); // credencial de senha aguardando vínculo via Google
 
   const mapErr = (code) => {
     const m = {
@@ -454,14 +456,30 @@ function LoginScreen() {
     return m[code] || "Algo deu errado. Tente de novo.";
   };
 
+  // Descobre quais métodos de login já existem pra um email
+  const methodsFor = async (mail) => {
+    try { return await window.fbAuth.fetchSignInMethodsForEmail(mail.trim()); }
+    catch (e) { return []; }
+  };
+
   const google = async () => {
-    setErr(""); setBusy(true);
+    setErr(""); setInfo(""); setBusy(true);
     try {
       const provider = new firebase.auth.GoogleAuthProvider();
-      await window.fbAuth.signInWithPopup(provider);
+      const result = await window.fbAuth.signInWithPopup(provider);
+      // Se havia uma senha pendente de vínculo, vincula agora à conta Google
+      if (pendingCred && result && result.user) {
+        try {
+          await result.user.linkWithCredential(pendingCred);
+        } catch (e) { /* já vinculada ou senha incompatível: segue logado mesmo assim */ }
+        setPendingCred(null);
+      }
     } catch (e) {
       if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
         try { const p = new firebase.auth.GoogleAuthProvider(); await window.fbAuth.signInWithRedirect(p); return; } catch (e2) { setErr(mapErr(e2 && e2.code)); }
+      } else if (e && e.code === "auth/account-exists-with-different-credential") {
+        setErr("Esse email já usa senha. Entre com email e senha.");
+        setMode("in");
       } else {
         setErr(mapErr(e && e.code));
       }
@@ -470,14 +488,66 @@ function LoginScreen() {
   };
 
   const emailAuth = async () => {
-    setErr(""); setBusy(true);
+    setErr(""); setInfo("");
+    const mail = email.trim();
+    if (!mail) { setErr("Digite o email."); return; }
+    if (!pass) { setErr("Digite a senha."); return; }
+    setBusy(true);
     try {
-      if (mode === "up") await window.fbAuth.createUserWithEmailAndPassword(email.trim(), pass);
-      else await window.fbAuth.signInWithEmailAndPassword(email.trim(), pass);
+      if (mode === "up") {
+        // Antes de criar, verifica se o email já existe com outro método
+        const methods = await methodsFor(mail);
+        if (methods.includes("google.com") && !methods.includes("password")) {
+          // Email é Google: guarda a senha e conduz ao login Google pra vincular
+          const cred = firebase.auth.EmailAuthProvider.credential(mail, pass);
+          setPendingCred(cred);
+          setBusy(false);
+          setInfo("Esse email já entra com Google. Toque em \"Continuar com Google\" — a senha que você digitou será vinculada à sua conta.");
+          return;
+        }
+        await window.fbAuth.createUserWithEmailAndPassword(mail, pass);
+      } else {
+        await window.fbAuth.signInWithEmailAndPassword(mail, pass);
+      }
     } catch (e) {
+      // Conta existe só com Google e tentou entrar com senha
+      if (e && (e.code === "auth/invalid-credential" || e.code === "auth/user-not-found" || e.code === "auth/wrong-password")) {
+        const methods = await methodsFor(mail);
+        if (methods.includes("google.com") && !methods.includes("password")) {
+          if (mode === "in") {
+            setErr("Esse email entra com Google. Toque em \"Continuar com Google\".");
+          } else {
+            const cred = firebase.auth.EmailAuthProvider.credential(mail, pass);
+            setPendingCred(cred);
+            setInfo("Esse email já entra com Google. Toque em \"Continuar com Google\" — sua senha será vinculada.");
+          }
+          setBusy(false);
+          return;
+        }
+      }
       setErr(mapErr(e && e.code));
       setBusy(false);
     }
+  };
+
+  const resetPass = async () => {
+    setErr(""); setInfo("");
+    const mail = email.trim();
+    if (!mail) { setErr("Digite o email no campo acima pra enviar o link de redefinição."); return; }
+    setBusy(true);
+    try {
+      const methods = await methodsFor(mail);
+      if (methods.length && !methods.includes("password")) {
+        setInfo("Esse email entra com Google — não tem senha pra redefinir. Use \"Continuar com Google\".");
+        setBusy(false);
+        return;
+      }
+      await window.fbAuth.sendPasswordResetEmail(mail);
+      setInfo("Enviei um link de redefinição pra " + mail + ". Verifique sua caixa de entrada (e o spam).");
+    } catch (e) {
+      setErr(mapErr(e && e.code));
+    }
+    setBusy(false);
   };
 
   return (
@@ -490,9 +560,9 @@ function LoginScreen() {
         </div>
         <p style={{ textAlign: "center", color: "#7a7a82", fontSize: 13.5, margin: "0 0 30px" }}>Seu treino, em qualquer aparelho.</p>
 
-        <button onClick={google} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#fff", color: "#1a1a1a", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
-          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.98 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
-          Continuar com Google
+        <button onClick={google} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: pendingCred ? "#E8843C" : "#fff", color: pendingCred ? "#101013" : "#1a1a1a", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+          {!pendingCred && <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.98 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>}
+          {pendingCred ? "Continuar com Google e vincular" : "Continuar com Google"}
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
@@ -501,10 +571,17 @@ function LoginScreen() {
           <div style={{ flex: 1, height: 1, background: "#26262b" }} />
         </div>
 
-        <input type="email" inputMode="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); }} style={{ ...textInput, marginBottom: 10 }} />
-        <input type="password" autoComplete={mode === "up" ? "new-password" : "current-password"} placeholder="Senha" value={pass} onChange={(e) => { setPass(e.target.value); setErr(""); }} onKeyDown={(e) => { if (e.key === "Enter") emailAuth(); }} style={{ ...textInput, marginBottom: 14 }} />
+        <input type="email" inputMode="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); setInfo(""); }} style={{ ...textInput, marginBottom: 10 }} />
+        <input type="password" autoComplete={mode === "up" ? "new-password" : "current-password"} placeholder="Senha" value={pass} onChange={(e) => { setPass(e.target.value); setErr(""); setInfo(""); }} onKeyDown={(e) => { if (e.key === "Enter") emailAuth(); }} style={{ ...textInput, marginBottom: mode === "in" ? 6 : 14 }} />
 
-        {err && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center" }}>{err}</div>}
+        {mode === "in" && (
+          <div style={{ textAlign: "right", marginBottom: 12 }}>
+            <button onClick={resetPass} disabled={busy} style={{ background: "none", border: "none", color: "#8a8a92", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>Esqueci minha senha</button>
+          </div>
+        )}
+
+        {err && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", lineHeight: 1.45 }}>{err}</div>}
+        {info && <div style={{ color: "#5EB87A", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", lineHeight: 1.45 }}>{info}</div>}
 
         <button onClick={emailAuth} disabled={busy} style={{ ...primaryBtn("#E8843C"), width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}>
           {mode === "up" ? "Criar conta" : "Entrar"}
@@ -512,7 +589,7 @@ function LoginScreen() {
 
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 13.5, color: "#8a8a92" }}>
           {mode === "up" ? "Já tem conta? " : "Ainda não tem conta? "}
-          <button onClick={() => { setMode(mode === "up" ? "in" : "up"); setErr(""); }} style={{ background: "none", border: "none", color: "#E8843C", fontWeight: 700, cursor: "pointer", fontSize: 13.5, padding: 0 }}>
+          <button onClick={() => { setMode(mode === "up" ? "in" : "up"); setErr(""); setInfo(""); }} style={{ background: "none", border: "none", color: "#E8843C", fontWeight: 700, cursor: "pointer", fontSize: 13.5, padding: 0 }}>
             {mode === "up" ? "Entrar" : "Criar conta"}
           </button>
         </div>
