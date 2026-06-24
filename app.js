@@ -423,7 +423,7 @@ function LoadingScreen({ label }) {
           <Icon.Dumbbell width={34} height={34} />
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
         <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase", color: "#f0f0f2" }}>Ciclo<span style={{ color: "#E8843C" }}>7</span></span>
         <span style={{ color: "#5a5a62", fontSize: 13, fontWeight: 600 }}>{label || "preparando seu treino"}<span className="ciclo7-dots"></span></span>
       </div>
@@ -623,6 +623,44 @@ function App() {
   // timer global de descanso
   const [timer, setTimer] = useState(null); // { endAt, total, accent, minimized, finished }
   const [now, setNow] = useState(Date.now());
+
+  // ---------- botão "voltar" do Android: fecha overlays em vez de sair do app ----------
+  // pilha lógica de camadas abertas, da mais externa pra mais interna
+  const closeTopLayer = useCallback(() => {
+    if (editingExercise) { setEditingExercise(null); return true; }
+    if (editingWorkout) { setEditingWorkout(null); return true; }
+    if (pendingFinish) { setPendingFinish(null); return true; }
+    if (showSchedule) { setShowSchedule(false); return true; }
+    if (activeWorkout) { setActiveWorkout(null); return true; }
+    if (tab !== "today") { setTab("today"); return true; }
+    return false;
+  }, [editingExercise, editingWorkout, pendingFinish, showSchedule, activeWorkout, tab]);
+
+  const anyLayerOpen = !!(editingExercise || editingWorkout || pendingFinish || showSchedule || activeWorkout) || tab !== "today";
+
+  // mantém um "amortecedor" no histórico sempre que há camada aberta
+  useEffect(() => {
+    if (!authUser) return;
+    if (anyLayerOpen) {
+      // empilha um estado-sentinela só se ainda não houver um nosso no topo
+      if (!window.history.state || !window.history.state.ciclo7Layer) {
+        window.history.pushState({ ciclo7Layer: true }, "");
+      }
+    }
+  }, [anyLayerOpen, authUser]);
+
+  useEffect(() => {
+    const onPop = (e) => {
+      // ao voltar, se há camada aberta, fecha a do topo e re-empilha o amortecedor
+      const closed = closeTopLayer();
+      if (closed) {
+        // se ainda restou camada aberta, recoloca o sentinela pra continuar capturando
+        // (o próximo efeito de anyLayerOpen cuida disso no re-render)
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [closeTopLayer]);
 
   // observa login/logout
   useEffect(() => {
@@ -1090,6 +1128,7 @@ function NoteModal({ accent, onSave, onSkip, onClose }) {
 // TODAY VIEW
 // ============================================================
 function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress, onOpen, onEditSchedule }) {
+  const [pickOther, setPickOther] = useState(false);
   return (
     <div style={{ padding: "22px 18px 30px" }}>
       <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>{DAYS[todayIdx]} · treino de hoje</div>
@@ -1121,6 +1160,10 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
           <div style={{ color: "#8a8a92", fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>Sem treino programado pra hoje.<br />Recuperação também é treino.</div>
         </div>
       )}
+
+      <button onClick={() => setPickOther(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 12, background: "none", border: "1px dashed #3a3a42", borderRadius: 12, padding: "13px", color: "#b0b0b8", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+        <Icon.Swap /> {workout ? "Fazer outro treino hoje" : "Escolher um treino pra hoje"}
+      </button>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "28px 0 12px" }}>
         <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Sua semana</div>
@@ -1170,6 +1213,40 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
           </div>
         </div>
       </div>
+
+      {pickOther && (
+        <div style={overlay} onClick={() => setPickOther(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...panel, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            <div style={panelHeader}>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>Treino de hoje</span>
+              <button onClick={() => setPickOther(false)} style={iconBtn}><Icon.X /></button>
+            </div>
+            <div style={{ padding: "0 18px 8px" }}>
+              <p style={{ color: "#8a8a92", fontSize: 13, lineHeight: 1.5, margin: "0 0 14px" }}>Escolha qualquer treino pra fazer hoje. Isso <strong style={{ color: "#c9c9ce" }}>não muda a sua agenda</strong> — vale só pra esta sessão.</p>
+            </div>
+            <div style={{ padding: "0 18px 18px", overflowY: "auto" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {Object.values(workouts).map((w) => {
+                  const wp = sessionProgress(w.key);
+                  const isScheduled = workout && w.key === workout.key;
+                  return (
+                    <button key={w.key} onClick={() => { setPickOther(false); onOpen(w.key); }} style={{ ...rowCard, cursor: "pointer", borderColor: isScheduled ? w.accent : "#1f1f24" }}>
+                      <span style={{ width: 38, height: 38, borderRadius: 9, background: w.accent, color: "#101013", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
+                      <span style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+                        <span style={{ display: "block", fontWeight: 600, fontSize: 15, color: "#f0f0f2" }}>{w.name}</span>
+                        <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 1 }}>
+                          {w.items.length} exercícios{isScheduled ? " · previsto pra hoje" : ""}{wp.setsDone > 0 ? " · " + wp.setsDone + "/" + wp.setsTotal + " séries" : ""}
+                        </span>
+                      </span>
+                      <Icon.Arrow />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
