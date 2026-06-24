@@ -882,10 +882,17 @@ function App() {
     await storeSet(KEY_LOGS, next);
   };
 
-  const deleteLog = async (exId, origIndex) => {
+  const deleteLog = async (exId, rec) => {
     const next = { ...logs };
     if (!next[exId]) return;
-    const arr = next[exId].filter((_, i) => i !== origIndex);
+    // remove a primeira ocorrência que casa com o registro (data+peso+série+reps)
+    let removed = false;
+    const arr = next[exId].filter((e) => {
+      if (removed) return true;
+      const match = e.date === rec.date && e.weight === rec.weight && (e.set || null) === (rec.set || null) && (e.reps || "") === (rec.reps || "");
+      if (match) { removed = true; return false; }
+      return true;
+    });
     if (arr.length) next[exId] = arr;
     else delete next[exId]; // remove o exercício do histórico se ficou sem registros
     setLogs(next);
@@ -1767,11 +1774,28 @@ function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose
 // ============================================================
 function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew, onClose }) {
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState("");
+  const usedMuscles = useMemo(() => {
+    const present = new Set();
+    Object.values(lib).forEach((ex) => {
+      const m = exMuscles(ex);
+      if (m.p) present.add(m.p);
+      (m.s || []).forEach((x) => present.add(x));
+    });
+    return MUSCLE_ORDER.filter((id) => present.has(id));
+  }, [lib]);
   const list = useMemo(() => {
     const all = Object.values(lib).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     const term = q.trim().toLowerCase();
-    return term ? all.filter((e) => e.name.toLowerCase().includes(term)) : all;
-  }, [lib, q]);
+    return all.filter((e) => {
+      if (term && !e.name.toLowerCase().includes(term)) return false;
+      if (filter) {
+        const m = exMuscles(e);
+        if (m.p !== filter && !(m.s || []).includes(filter)) return false;
+      }
+      return true;
+    });
+  }, [lib, q, filter]);
 
   return (
     <div style={{ ...overlay, zIndex: 70 }} onClick={onClose}>
@@ -1785,6 +1809,16 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
             <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#5a5a62", display: "flex" }}><Icon.Search /></span>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar na biblioteca…" style={{ ...textInput, paddingLeft: 36 }} />
           </div>
+          {usedMuscles.length > 0 && (
+            <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingTop: 12, paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
+              <button onClick={() => setFilter("")} style={filterChip(filter === "", "#E8843C")}>Todos</button>
+              {usedMuscles.map((id) => (
+                <button key={id} onClick={() => setFilter(filter === id ? "" : id)} style={filterChip(filter === id, muscleColor(id))}>
+                  {muscleName(id)}
+                </button>
+              ))}
+            </div>
+          )}
           {onCreateNew && (
             <button onClick={onCreateNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#E8843C", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "12px 0 0" }}>
               <Icon.Plus /> Criar exercício novo
@@ -1799,7 +1833,8 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
                 <button key={ex.id} onClick={() => { if (!added) { onPick(ex); if (closeOnPick) onClose(); } }} disabled={added} style={{ ...card, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, cursor: added ? "default" : "pointer", opacity: added ? 0.45 : 1, textAlign: "left", width: "100%" }}>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontWeight: 600, fontSize: 14, color: "#f0f0f2", lineHeight: 1.3 }}>{ex.name}</span>
-                    <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 2 }}>{ex.sets}× {ex.reps} · {ex.rest}</span>
+                    {exMuscles(ex).p ? <span style={{ display: "block", marginTop: 6 }}><MuscleChips muscles={ex.muscles} /></span> : null}
+                    <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 6 }}>{ex.sets}× {ex.reps} · {ex.rest}</span>
                   </span>
                   <span style={{ color: added ? "#5EB87A" : "#E8843C", display: "flex", flexShrink: 0 }}>{added ? <Icon.Check /> : <Icon.Plus />}</span>
                 </button>
@@ -2032,6 +2067,38 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
 // PROGRESS VIEW
 // ============================================================
 function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteLog }) {
+  // ---------- filtro de período ----------
+  const PERIODS = [
+    { id: "7", label: "7 dias", days: 7 },
+    { id: "30", label: "30 dias", days: 30 },
+    { id: "90", label: "90 dias", days: 90 },
+    { id: "all", label: "Tudo", days: null },
+  ];
+  const [period, setPeriod] = useState("30");
+  const periodStart = useMemo(() => {
+    const p = PERIODS.find((x) => x.id === period);
+    if (!p || p.days == null) return 0;
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    return d.getTime() - (p.days - 1) * 24 * 3600 * 1000;
+  }, [period]);
+
+  // logs e history recortados ao período escolhido
+  const fLogs = useMemo(() => {
+    if (!periodStart) return logs;
+    const out = {};
+    Object.entries(logs).forEach(([exId, arr]) => {
+      if (!arr) return;
+      const kept = arr.filter((e) => new Date(e.date).getTime() >= periodStart);
+      if (kept.length) out[exId] = kept;
+    });
+    return out;
+  }, [logs, periodStart]);
+
+  const fHistory = useMemo(() => {
+    if (!periodStart) return history;
+    return history.filter((h) => new Date(h.date).getTime() >= periodStart);
+  }, [history, periodStart]);
+
   const metaByEx = useMemo(() => {
     const m = {};
     Object.values(workouts).forEach((w) => w.items.forEach((it) => {
@@ -2040,25 +2107,29 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
     return m;
   }, [workouts]);
 
-  const logged = Object.entries(logs).filter(([, arr]) => arr && arr.length).sort((a, b) => {
+  const logged = Object.entries(fLogs).filter(([, arr]) => arr && arr.length).sort((a, b) => {
     const la = new Date(a[1][a[1].length - 1].date).getTime();
     const lb = new Date(b[1][b[1].length - 1].date).getTime();
     return lb - la;
   });
 
-  const totalSets = Object.values(logs).reduce((acc, arr) => acc + (arr ? arr.length : 0), 0);
-  const completedSessions = history.length;
+  const totalSets = Object.values(fLogs).reduce((acc, arr) => acc + (arr ? arr.length : 0), 0);
+  const completedSessions = fHistory.length;
 
-  // volume semanal (séries feitas por semana, últimas 8 semanas)
+  // volume semanal: nº de semanas conforme o período (até 12), ou 8 no "Tudo"
   const weekly = useMemo(() => {
     const MS_WEEK = 7 * 24 * 3600 * 1000;
     const cur = weekStartMs(new Date());
+    const p = PERIODS.find((x) => x.id === period);
+    let nWeeks = 8;
+    if (p && p.days != null) nWeeks = Math.max(2, Math.ceil(p.days / 7));
+    nWeeks = Math.min(nWeeks, 13);
     const buckets = [];
-    for (let i = 7; i >= 0; i--) {
+    for (let i = nWeeks - 1; i >= 0; i--) {
       const start = cur - i * MS_WEEK;
       buckets.push({ start, label: new Date(start).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), sets: 0 });
     }
-    history.forEach((h) => {
+    fHistory.forEach((h) => {
       if (!h.setsDone) return;
       const ws = weekStartMs(h.date);
       const b = buckets.find((bk) => bk.start === ws);
@@ -2066,7 +2137,7 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
     });
     const any = buckets.some((b) => b.sets > 0);
     return any ? buckets : null;
-  }, [history]);
+  }, [fHistory, period]);
 
   const [expanded, setExpanded] = useState(null);
   const [expandedSession, setExpandedSession] = useState(null);
@@ -2074,15 +2145,11 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
   const [confirmDelete, setConfirmDelete] = useState(null); // id da sessão aguardando confirmação
   const [confirmDeleteLog, setConfirmDeleteLog] = useState(null); // "exId:origIndex" aguardando confirmação
 
-  // volume por grupo muscular nas últimas 4 semanas (séries ponderadas)
+  // volume por grupo muscular no período (séries ponderadas)
   const muscleVolume = useMemo(() => {
-    const MS_WEEK = 7 * 24 * 3600 * 1000;
-    const cur = weekStartMs(new Date());
-    const minStart = cur - 3 * MS_WEEK; // 4 semanas: atual + 3 anteriores
     const totals = {};
-    history.forEach((h) => {
+    fHistory.forEach((h) => {
       if (!h.muscleSets) return;
-      if (weekStartMs(h.date) < minStart) return;
       Object.entries(h.muscleSets).forEach(([mid, v]) => {
         totals[mid] = (totals[mid] || 0) + v;
       });
@@ -2090,13 +2157,19 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
     const rows = MUSCLE_ORDER.filter((id) => totals[id] > 0).map((id) => ({ id, sets: totals[id] }));
     rows.sort((a, b) => b.sets - a.sets);
     return rows.length ? rows : null;
-  }, [history]);
+  }, [fHistory]);
 
-  const sessionsDesc = useMemo(() => [...history].reverse(), [history]);
+  const sessionsDesc = useMemo(() => [...fHistory].reverse(), [fHistory]);
   const sessionsShown = showAllSessions ? sessionsDesc : sessionsDesc.slice(0, 8);
 
   return (
     <div style={{ padding: "22px 18px 30px" }}>
+      <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 18, WebkitOverflowScrolling: "touch" }}>
+        {PERIODS.map((p) => (
+          <button key={p.id} onClick={() => setPeriod(p.id)} style={filterChip(period === p.id, "#E8843C")}>{p.label}</button>
+        ))}
+      </div>
+
       <div style={{ display: "flex", gap: 11, marginBottom: 22 }}>
         <MetricCard value={completedSessions} label="treinos concluídos" accent="#E8843C" icon={<Icon.Trophy />} />
         <MetricCard value={totalSets} label="cargas registradas" accent="#5EB87A" icon={<Icon.Dumbbell />} />
@@ -2113,7 +2186,7 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
 
       {muscleVolume && (
         <React.Fragment>
-          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>Volume por grupo · 4 semanas</div>
+          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>Volume por grupo · {period === "all" ? "tudo" : (PERIODS.find((x) => x.id === period) || {}).label}</div>
           <div style={{ fontSize: 11.5, color: "#7a7a82", marginBottom: 12, lineHeight: 1.4 }}>Séries ponderadas — primário conta 1, secundário 0,5.</div>
           <div style={{ ...card, padding: "16px 16px 14px", marginBottom: 22 }}>
             <MuscleVolumeBars rows={muscleVolume} />
@@ -2217,11 +2290,10 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
                       <MiniChart arr={arr} accent={accent} />
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
                         {[...arr].reverse().map((l, i) => {
-                          const origIndex = arr.length - 1 - i;
-                          const logId = exId + ":" + origIndex;
+                          const logId = exId + ":" + l.date + ":" + i;
                           const isConfirming = confirmDeleteLog === logId;
                           return (
-                            <div key={origIndex} style={{ borderBottom: i < arr.length - 1 ? "1px solid #1c1c22" : "none" }}>
+                            <div key={logId} style={{ borderBottom: i < arr.length - 1 ? "1px solid #1c1c22" : "none" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 0", gap: 10 }}>
                                 <span style={{ color: "#9a9aa2", flexShrink: 0 }}>{new Date(l.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{l.set ? " · S" + l.set : ""}</span>
                                 <span style={{ flex: 1, textAlign: "right", fontWeight: 700, color: "#e0e0e4" }}>{l.weight}kg × {l.reps}</span>
@@ -2237,7 +2309,7 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0 10px", justifyContent: "flex-end" }}>
                                   <span style={{ flex: 1, fontSize: 12, color: "#b8736a", lineHeight: 1.4 }}>Excluir este registro de carga?</span>
                                   <button onClick={() => setConfirmDeleteLog(null)} style={{ background: "none", border: "1px solid #2e2e36", borderRadius: 7, padding: "5px 10px", color: "#9a9aa2", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Cancelar</button>
-                                  <button onClick={() => { onDeleteLog(exId, origIndex); setConfirmDeleteLog(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 7, padding: "5px 10px", color: "#101013", fontSize: 12, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
+                                  <button onClick={() => { onDeleteLog(exId, l); setConfirmDeleteLog(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 7, padding: "5px 10px", color: "#101013", fontSize: 12, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
                                 </div>
                               )}
                             </div>
