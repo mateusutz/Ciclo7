@@ -248,26 +248,36 @@ async function storeSet(key, value) {
   }
 }
 
-function exportAllData() {
-  const data = {};
-  ALL_KEYS.forEach((k) => {
-    const raw = localStorage.getItem(NS + k);
-    if (raw != null) {
-      try { data[k] = JSON.parse(raw); } catch (e) {}
-    }
-  });
-  const payload = { app: "ciclo7", version: 4, exportedAt: new Date().toISOString(), data };
+const ACERVO_KEYS = [KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE];
+const HISTORICO_KEYS = [KEY_HISTORY, KEY_LOGS];
+
+function downloadJson(payload, filename) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const d = new Date();
   a.href = url;
-  a.download = "ciclo7-backup-" + d.toISOString().slice(0, 10) + ".json";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
+
+function exportKeys(kind, keys) {
+  const data = {};
+  keys.forEach((k) => {
+    const raw = localStorage.getItem(NS + k);
+    if (raw != null) {
+      try { data[k] = JSON.parse(raw); } catch (e) {}
+    }
+  });
+  const payload = { app: "ciclo7", kind, version: 4, exportedAt: new Date().toISOString(), data };
+  const tag = kind === "acervo" ? "acervo" : "historico";
+  downloadJson(payload, "ciclo7-" + tag + "-" + new Date().toISOString().slice(0, 10) + ".json");
+}
+
+const exportAcervo = () => exportKeys("acervo", ACERVO_KEYS);
+const exportHistorico = () => exportKeys("historico", HISTORICO_KEYS);
 
 // ============================================================
 // ICONS
@@ -2352,10 +2362,11 @@ function WeeklyBars({ buckets }) {
   );
 }
 
-function BackupCard() {
+function BackupSection({ kind, title, desc, expectedKeys, onExport }) {
   const fileRef = useRef(null);
   const [pendingImport, setPendingImport] = useState(null);
   const [msg, setMsg] = useState("");
+  const [msgColor, setMsgColor] = useState("#e36a5a");
 
   const handleFile = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -2365,14 +2376,24 @@ function BackupCard() {
       try {
         const parsed = JSON.parse(reader.result);
         if (parsed.app !== "ciclo7" || !parsed.data || typeof parsed.data !== "object") {
-          setMsg("Arquivo inválido — não parece um backup do Ciclo7.");
-          setPendingImport(null);
-          return;
+          setMsgColor("#e36a5a"); setMsg("Arquivo inválido — não parece um backup do Ciclo7.");
+          setPendingImport(null); return;
         }
-        setMsg("");
-        setPendingImport(parsed);
+        // valida que o arquivo é do tipo certo (acervo vs histórico)
+        if (parsed.kind && parsed.kind !== kind) {
+          const outro = parsed.kind === "acervo" ? "acervo" : "histórico";
+          setMsgColor("#e36a5a"); setMsg("Esse arquivo é de " + outro + ". Use-o na seção de " + outro + ".");
+          setPendingImport(null); return;
+        }
+        // confere que contém ao menos uma das chaves esperadas
+        const keysInFile = Object.keys(parsed.data).filter((k) => expectedKeys.includes(k));
+        if (!keysInFile.length) {
+          setMsgColor("#e36a5a"); setMsg("O arquivo não tem dados de " + title.toLowerCase() + ".");
+          setPendingImport(null); return;
+        }
+        setMsg(""); setPendingImport(parsed);
       } catch (err) {
-        setMsg("Não consegui ler o arquivo. É um .json de backup?");
+        setMsgColor("#e36a5a"); setMsg("Não consegui ler o arquivo. É um .json de backup?");
         setPendingImport(null);
       }
     };
@@ -2383,23 +2404,21 @@ function BackupCard() {
   const confirmImport = async () => {
     try {
       for (const [k, v] of Object.entries(pendingImport.data)) {
-        if (ALL_KEYS.includes(k)) await storeSet(k, v);
+        if (expectedKeys.includes(k)) await storeSet(k, v);
       }
       window.location.reload();
     } catch (err) {
-      setMsg("Erro ao importar. Tenta de novo.");
+      setMsgColor("#e36a5a"); setMsg("Erro ao importar. Tenta de novo.");
       setPendingImport(null);
     }
   };
 
   return (
-    <div style={{ ...card, marginTop: 26, padding: 18 }}>
-      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 8 }}>Backup dos dados</div>
-      <p style={{ color: "#8a8a92", fontSize: 13, lineHeight: 1.5, margin: "0 0 14px" }}>
-        Seus dados ficam só neste aparelho. Exporte um arquivo de backup pra guardar ou levar pra outro celular.
-      </p>
+    <div style={{ ...card, padding: 18, marginBottom: 12 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f2", marginBottom: 4 }}>{title}</div>
+      <p style={{ color: "#8a8a92", fontSize: 12.5, lineHeight: 1.5, margin: "0 0 14px" }}>{desc}</p>
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={exportAllData} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+        <button onClick={onExport} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
           <Icon.Download /> Exportar
         </button>
         <button onClick={() => fileRef.current && fileRef.current.click()} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
@@ -2410,7 +2429,7 @@ function BackupCard() {
       {pendingImport && (
         <div style={{ marginTop: 14, padding: 14, background: "#1a1610", border: "1px solid #3a2f1f", borderRadius: 10 }}>
           <div style={{ fontSize: 13, color: "#c9b896", lineHeight: 1.5, marginBottom: 10 }}>
-            <strong style={{ color: "#E8843C" }}>Atenção:</strong> importar substitui TODOS os dados atuais pelos do backup{pendingImport.exportedAt ? " (de " + new Date(pendingImport.exportedAt).toLocaleDateString("pt-BR") + ")" : ""}. Essa ação não pode ser desfeita.
+            <strong style={{ color: "#E8843C" }}>Atenção:</strong> importar substitui {kind === "acervo" ? "seu acervo (biblioteca, treinos e agenda)" : "seu histórico (sessões e cargas)"} pelo conteúdo do backup{pendingImport.exportedAt ? " (de " + new Date(pendingImport.exportedAt).toLocaleDateString("pt-BR") + ")" : ""}. Não dá pra desfazer.
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setPendingImport(null)} style={{ flex: 1, padding: "10px", background: "transparent", color: "#9a9aa2", border: "1px solid #2a2a30", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
@@ -2418,7 +2437,29 @@ function BackupCard() {
           </div>
         </div>
       )}
-      {msg && <div style={{ marginTop: 10, color: "#e36a5a", fontSize: 13, fontWeight: 600 }}>{msg}</div>}
+      {msg && <div style={{ marginTop: 10, color: msgColor, fontSize: 13, fontWeight: 600, lineHeight: 1.4 }}>{msg}</div>}
+    </div>
+  );
+}
+
+function BackupCard() {
+  return (
+    <div style={{ marginTop: 26 }}>
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 12 }}>Backup dos dados</div>
+      <BackupSection
+        kind="acervo"
+        title="Acervo (exercícios, treinos e agenda)"
+        desc="Sua biblioteca de exercícios, os treinos montados e a agenda da semana. Útil pra levar sua configuração pra outro lugar."
+        expectedKeys={ACERVO_KEYS}
+        onExport={exportAcervo}
+      />
+      <BackupSection
+        kind="historico"
+        title="Histórico (treinos feitos e cargas)"
+        desc="As sessões que você concluiu e o histórico de cargas por exercício. Útil pra guardar seu progresso."
+        expectedKeys={HISTORICO_KEYS}
+        onExport={exportHistorico}
+      />
     </div>
   );
 }
