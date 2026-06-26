@@ -28,6 +28,11 @@ const muscleName = (id) => (MUSCLES[id] ? MUSCLES[id].name : id);
 const muscleColor = (id) => (MUSCLES[id] ? MUSCLES[id].color : "#8a8a92");
 const exMuscles = (ex) => (ex && ex.muscles) ? ex.muscles : { p: "", s: [] };
 const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// aceita vírgula OU ponto como separador decimal (ex.: "17,5" -> 17.5)
+const parseNum = (v) => {
+  if (v == null) return NaN;
+  return parseFloat(String(v).replace(",", "."));
+};
 const ytId = (url) => {
   if (!url) return null;
   const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
@@ -1483,7 +1488,7 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
     if (!weight) return;
     const setNum = setsDone + 1;
     if (setNum > ex.sets) return;
-    logSet(ex.id, { weight: parseFloat(weight), reps: reps || ex.reps, set: setNum });
+    logSet(ex.id, { weight: parseNum(weight), reps: reps || ex.reps, set: setNum });
     onSetChange(setNum); // marca a série como concluída
     setWeight(""); setReps("");
     if (setNum >= ex.sets) setOpen(false); // fecha só na última série
