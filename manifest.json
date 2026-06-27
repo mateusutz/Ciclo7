@@ -1,12 +1,12 @@
 {
-  "name": "Ciclo7",
-  "short_name": "Ciclo7",
-  "description": "Treino de hipertrofia \u2014 ciclo de 7 dias",
+  "name": "Forge",
+  "short_name": "Forge",
+  "description": "Treino de força e hipertrofia",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d0d0f",
-  "theme_color": "#0d0d0f",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
   "icons": [
     {
       "src": "./icon-512.png",
