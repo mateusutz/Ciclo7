@@ -1,14 +1,14 @@
 {
-  "name": "Ciclo7 — Treino de Hipertrofia",
-  "short_name": "Ciclo7",
-  "description": "App de treino de hipertrofia com ciclo de 7 dias, registro de carga e acompanhamento de progresso.",
+  "name": "Forge — Treino de Força",
+  "short_name": "Forge",
+  "description": "App de treino de força e hipertrofia, com registro de carga e acompanhamento de progresso.",
   "lang": "pt-BR",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d0d0f",
-  "theme_color": "#0d0d0f",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
   "icons": [
     {
       "src": "icons/icon-192.png",
