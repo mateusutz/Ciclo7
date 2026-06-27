@@ -5,23 +5,33 @@ const { useState, useEffect, useMemo, useCallback, useRef } = React;
 // ============================================================
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
-const PALETTE = ["#E8843C", "#4C9BD6", "#C77DD6", "#5EB87A", "#E3C84C", "#E36A5A"];
+const PALETTE = ["#EF4444", "#2563EB", "#8B5CF6", "#10B981", "#F59E0B", "#EC4899"];
+// decide texto claro ou escuro conforme a luminância da cor de fundo
+const onColor = (hex) => {
+  if (!hex || hex[0] !== "#") return "#FFFFFF";
+  let h = hex.slice(1);
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  // luminância relativa (perceptual)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.62 ? "#0B0F19" : "#FFFFFF";
+};
 const MUSCLES = {
-  peito: { name: "Peito", color: "#E8843C" },
-  costas: { name: "Costas", color: "#4C9BD6" },
-  ombros: { name: "Ombros", color: "#C77DD6" },
-  biceps: { name: "Bíceps", color: "#5EB87A" },
-  triceps: { name: "Tríceps", color: "#E3C84C" },
-  trapezio: { name: "Trapézio", color: "#6FAFD6" },
-  antebraco: { name: "Antebraços", color: "#8FCBA0" },
-  abdomen: { name: "Abdômen", color: "#E36A5A" },
-  anterior: { name: "Anterior de coxa", color: "#D69B4C" },
-  posterior: { name: "Posterior de coxa", color: "#A0C77D" },
-  gluteos: { name: "Glúteos", color: "#D67DA8" },
-  panturrilha: { name: "Panturrilhas", color: "#7D9BD6" },
-  adutores: { name: "Adutores", color: "#C98FD6" },
-  flexores: { name: "Flexores do quadril", color: "#D6A77D" },
-  lombar: { name: "Lombar/eretores", color: "#9B8FD6" },
+  peito: { name: "Peito", color: "#EF4444" },
+  costas: { name: "Costas", color: "#2563EB" },
+  ombros: { name: "Ombros", color: "#8B5CF6" },
+  biceps: { name: "Bíceps", color: "#10B981" },
+  triceps: { name: "Tríceps", color: "#F59E0B" },
+  trapezio: { name: "Trapézio", color: "#38BDF8" },
+  antebraco: { name: "Antebraços", color: "#34D399" },
+  abdomen: { name: "Abdômen", color: "#EC4899" },
+  anterior: { name: "Anterior de coxa", color: "#FB923C" },
+  posterior: { name: "Posterior de coxa", color: "#84CC16" },
+  gluteos: { name: "Glúteos", color: "#F472B6" },
+  panturrilha: { name: "Panturrilhas", color: "#22D3EE" },
+  adutores: { name: "Adutores", color: "#A78BFA" },
+  flexores: { name: "Flexores do quadril", color: "#FBBF24" },
+  lombar: { name: "Lombar/eretores", color: "#818CF8" },
 };
 const MUSCLE_ORDER = ["peito","costas","ombros","biceps","triceps","trapezio","antebraco","abdomen","anterior","posterior","gluteos","panturrilha","adutores","flexores","lombar"];
 const muscleName = (id) => (MUSCLES[id] ? MUSCLES[id].name : id);
@@ -86,7 +96,7 @@ const DEFAULT_SESSIONS = {
   A1: {
     name: "Peito e Tríceps",
     tag: "A1",
-    accent: "#E8843C",
+    accent: "#EF4444",
     exercises: [
       { id: "a1e1", name: "Supino reto com halteres", sets: 4, reps: "8-12", rest: "90s", warn: "Halteres em vez de barra dão liberdade pro ombro esquerdo encontrar a trajetória natural. Comece leve pra sentir a estabilidade.", muscles: { p: "peito", s: ["triceps", "ombros"] } },
       { id: "a1e2", name: "Supino inclinado na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", note: "Ênfase em peito superior — prioridade sua.", muscles: { p: "peito", s: ["triceps", "ombros"] } },
@@ -100,7 +110,7 @@ const DEFAULT_SESSIONS = {
   B1: {
     name: "Costas e Bíceps",
     tag: "B1",
-    accent: "#4C9BD6",
+    accent: "#2563EB",
     exercises: [
       { id: "b1e1", name: "Puxada frontal na máquina/polia", sets: 4, reps: "8-12", rest: "90s", muscles: { p: "costas", s: ["biceps"] } },
       { id: "b1e2", name: "Remada baixa sentado na polia", sets: 4, reps: "10-12", rest: "90s", warn: "Mantenha o tronco estável e evite puxar com tranco no final — protege o ombro esquerdo.", muscles: { p: "costas", s: ["biceps", "trapezio"] } },
@@ -114,7 +124,7 @@ const DEFAULT_SESSIONS = {
   C1: {
     name: "Ombros e Abdômen",
     tag: "C1",
-    accent: "#C77DD6",
+    accent: "#8B5CF6",
     exercises: [
       { id: "c1e1", name: "Desenvolvimento na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", warn: "Máquina em vez de halteres/barra livre pro ombro esquerdo trabalhar numa trajetória guiada e estável. Prioridade sua.", muscles: { p: "ombros", s: ["triceps"] } },
       { id: "c1e2", name: "Elevação lateral com halteres", sets: 4, reps: "12-15", rest: "60s", note: "O exercício rei pro deltoide medial — largura do ombro.", muscles: { p: "ombros", s: [] } },
@@ -128,7 +138,7 @@ const DEFAULT_SESSIONS = {
   A2: {
     name: "Peito e Tríceps",
     tag: "A2",
-    accent: "#E8843C",
+    accent: "#EF4444",
     exercises: [
       { id: "a2e1", name: "Supino reto na máquina (Hammer)", sets: 4, reps: "8-12", rest: "90s", muscles: { p: "peito", s: ["triceps", "ombros"] } },
       { id: "a2e2", name: "Supino inclinado com halteres", sets: 4, reps: "8-12", rest: "90s", warn: "Mesma lógica de liberdade pro ombro esquerdo.", muscles: { p: "peito", s: ["triceps", "ombros"] } },
@@ -142,7 +152,7 @@ const DEFAULT_SESSIONS = {
   B2: {
     name: "Costas e Bíceps",
     tag: "B2",
-    accent: "#4C9BD6",
+    accent: "#2563EB",
     exercises: [
       { id: "b2e1", name: "Puxada com pegada neutra (triângulo)", sets: 4, reps: "8-12", rest: "90s", muscles: { p: "costas", s: ["biceps"] } },
       { id: "b2e2", name: "Remada cavalinho ou remada T (apoio no peito)", sets: 4, reps: "10-12", rest: "90s", muscles: { p: "costas", s: ["biceps", "trapezio"] } },
@@ -156,7 +166,7 @@ const DEFAULT_SESSIONS = {
   C2: {
     name: "Ombros e Abdômen",
     tag: "C2",
-    accent: "#C77DD6",
+    accent: "#8B5CF6",
     exercises: [
       { id: "c2e1", name: "Desenvolvimento com halteres sentado", sets: 4, reps: "8-12", rest: "90s", warn: "Se sentir o ombro esquerdo instável, volte pra máquina. Só use halteres se a sensação estiver boa. Prioridade sua.", muscles: { p: "ombros", s: ["triceps"] } },
       { id: "c2e2", name: "Elevação lateral na máquina", sets: 4, reps: "12-15", rest: "60s", muscles: { p: "ombros", s: [] } },
@@ -170,7 +180,7 @@ const DEFAULT_SESSIONS = {
   D: {
     name: "Inferiores",
     tag: "D",
-    accent: "#5EB87A",
+    accent: "#10B981",
     headerWarn: "Sessão inteira pensada pra poupar o quadril pós-artroscopia. Nada de carga axial pesada nem amplitude extrema. Se algum movimento gerar dor (não confunda com esforço muscular normal), pare.",
     exercises: [
       { id: "de1", name: "Cadeira extensora", sets: 4, reps: "12-15", rest: "75s", note: "Quadríceps com zero estresse de quadril.", muscles: { p: "anterior", s: [] } },
@@ -291,6 +301,7 @@ const Icon = {
   Check: (p) => (<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" {...p}><polyline points="20 6 9 17 4 12" /></svg>),
   Warn: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>),
   Dumbbell: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m6.5 6.5 11 11" /><path d="m21 21-1-1" /><path d="m3 3 1 1" /><path d="m18 22 4-4" /><path d="m2 6 4-4" /><path d="m3 10 7-7" /><path d="m14 21 7-7" /></svg>),
+  Anvil: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none" {...p}><path d="M2 7h9v2.2c0 1.6-1.1 3-2.7 3.3l-.3.05V14h7.2c.2-1.7 1-3.2 2.3-4.2l1.2-.9-1-1.3-1.6 1.2c-.5.4-1.1.6-1.8.6H13V6.5C13 5.7 12.3 5 11.5 5H8.2C8.6 5.6 8.7 6.3 8.5 7H2z" /><path d="M6 15h9c-.3 1.3-1.1 2.4-2.2 3H16v2H5v-2h2.2C6.7 17.3 6.1 16.2 6 15z" /></svg>),
   Chart: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>),
   Timer: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2 2" /><path d="M5 3 2 6" /><path d="m22 6-3-3" /></svg>),
   List: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>),
@@ -334,7 +345,7 @@ function VideoModal({ videoId, title, onClose }) {
           <span style={{ fontWeight: 700, fontSize: 15, color: "#f0f0f2", paddingRight: 8, lineHeight: 1.3 }}>{title}</span>
           <button onClick={onClose} style={iconBtn}><Icon.X /></button>
         </div>
-        <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 14, overflow: "hidden", background: "#000", border: "1px solid #26262b" }}>
+        <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 14, overflow: "hidden", background: "#000", border: "1px solid #2A3344" }}>
           <iframe
             src={"https://www.youtube-nocookie.com/embed/" + videoId}
             title={title}
@@ -382,7 +393,7 @@ function TimerChip({ left, accent, finished, onClick }) {
       borderRadius: 999, cursor: "pointer",
       background: finished ? accent : "#17171c",
       border: "1.5px solid " + accent,
-      color: finished ? "#101013" : accent,
+      color: finished ? "#0B0F19" : accent,
       fontWeight: 800, fontSize: 15, fontVariantNumeric: "tabular-nums",
       boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
     }}>
@@ -400,7 +411,7 @@ function Ring({ pct, accent, size = 132, stroke = 11 }) {
   const off = c * (1 - pct);
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#26262b" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#2A3344" strokeWidth={stroke} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={accent} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1)" }} />
     </svg>
   );
@@ -424,22 +435,22 @@ function LoadingScreen({ label }) {
       <div style={{ position: "relative", width: size, height: size }}>
         {/* anel base */}
         <svg width={size} height={size} style={{ position: "absolute", inset: 0 }}>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1f1f24" strokeWidth={stroke} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#2A3344" strokeWidth={stroke} />
         </svg>
         {/* arco que gira */}
         <svg width={size} height={size} style={{ position: "absolute", inset: 0, animation: "ciclo7-spin 1s linear infinite" }}>
           <circle
-            cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E8843C" strokeWidth={stroke}
+            cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EF4444" strokeWidth={stroke}
             strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * 0.72}
           />
         </svg>
         {/* halter no centro, com pulso */}
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#E8843C", animation: "ciclo7-pulse 1.4s ease-in-out infinite" }}>
-          <Icon.Dumbbell width={34} height={34} />
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#EF4444", animation: "ciclo7-pulse 1.4s ease-in-out infinite" }}>
+          <Icon.Anvil width={34} height={34} />
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase", color: "#f0f0f2" }}>Ciclo<span style={{ color: "#E8843C" }}>7</span></span>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase", color: "#f0f0f2" }}><span style={{ color: "#EF4444" }}>F</span>orge</span>
         <span style={{ color: "#5a5a62", fontSize: 13, fontWeight: 600 }}>{label || "preparando seu treino"}<span className="ciclo7-dots"></span></span>
       </div>
     </div>
@@ -570,20 +581,20 @@ function LoginScreen() {
       <style>{globalCss}</style>
       <div style={{ width: "100%", maxWidth: 360 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 11, justifyContent: "center", marginBottom: 6 }}>
-          <span style={{ color: "#E8843C", display: "flex" }}><Icon.Dumbbell width={30} height={30} /></span>
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 40, letterSpacing: 0.5, textTransform: "uppercase", lineHeight: 1 }}>Ciclo<span style={{ color: "#E8843C" }}>7</span></span>
+          <span style={{ color: "#EF4444", display: "flex" }}><Icon.Anvil width={30} height={30} /></span>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 40, letterSpacing: 0.5, textTransform: "uppercase", lineHeight: 1 }}><span style={{ color: "#EF4444" }}>F</span>orge</span>
         </div>
         <p style={{ textAlign: "center", color: "#7a7a82", fontSize: 13.5, margin: "0 0 30px" }}>Seu treino, em qualquer aparelho.</p>
 
-        <button onClick={google} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: pendingCred ? "#E8843C" : "#fff", color: pendingCred ? "#101013" : "#1a1a1a", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+        <button onClick={google} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: pendingCred ? "#EF4444" : "#fff", color: pendingCred ? "#0B0F19" : "#1a1a1a", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
           {!pendingCred && <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.98 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>}
           {pendingCred ? "Continuar com Google e vincular" : "Continuar com Google"}
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
-          <div style={{ flex: 1, height: 1, background: "#26262b" }} />
+          <div style={{ flex: 1, height: 1, background: "#2A3344" }} />
           <span style={{ fontSize: 12, color: "#5a5a62", fontWeight: 600 }}>ou</span>
-          <div style={{ flex: 1, height: 1, background: "#26262b" }} />
+          <div style={{ flex: 1, height: 1, background: "#2A3344" }} />
         </div>
 
         <input type="email" inputMode="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); setInfo(""); }} style={{ ...textInput, marginBottom: 10 }} />
@@ -596,15 +607,15 @@ function LoginScreen() {
         )}
 
         {err && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", lineHeight: 1.45 }}>{err}</div>}
-        {info && <div style={{ color: "#5EB87A", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", lineHeight: 1.45 }}>{info}</div>}
+        {info && <div style={{ color: "#10B981", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", lineHeight: 1.45 }}>{info}</div>}
 
-        <button onClick={emailAuth} disabled={busy} style={{ ...primaryBtn("#E8843C"), width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}>
+        <button onClick={emailAuth} disabled={busy} style={{ ...primaryBtn("#EF4444"), width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}>
           {mode === "up" ? "Criar conta" : "Entrar"}
         </button>
 
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 13.5, color: "#8a8a92" }}>
           {mode === "up" ? "Já tem conta? " : "Ainda não tem conta? "}
-          <button onClick={() => { setMode(mode === "up" ? "in" : "up"); setErr(""); setInfo(""); }} style={{ background: "none", border: "none", color: "#E8843C", fontWeight: 700, cursor: "pointer", fontSize: 13.5, padding: 0 }}>
+          <button onClick={() => { setMode(mode === "up" ? "in" : "up"); setErr(""); setInfo(""); }} style={{ background: "none", border: "none", color: "#EF4444", fontWeight: 700, cursor: "pointer", fontSize: 13.5, padding: 0 }}>
             {mode === "up" ? "Entrar" : "Criar conta"}
           </button>
         </div>
@@ -805,7 +816,7 @@ function App() {
     next[sessionKey] = cur;
     setProgress(next);
     await storeSet(KEY_PROGRESS, next);
-    if (count > prev && opts.rest) startTimer(opts.rest, opts.accent || "#E8843C");
+    if (count > prev && opts.rest) startTimer(opts.rest, opts.accent || "#EF4444");
   };
 
   const setSub = async (sessionKey, origId, newId) => {
@@ -980,8 +991,8 @@ function App() {
 
       <header style={headerBar}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <span style={{ color: "#E8843C", display: "flex" }}><Icon.Dumbbell /></span>
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase" }}>Ciclo<span style={{ color: "#E8843C" }}>7</span></span>
+          <span style={{ color: "#EF4444", display: "flex" }}><Icon.Anvil /></span>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase" }}><span style={{ color: "#EF4444" }}>F</span>orge</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ fontSize: 11, color: "#6a6a72", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>Hipertrofia</div>
@@ -1085,7 +1096,7 @@ function App() {
 
       {pendingFinish && (
         <NoteModal
-          accent={workouts[pendingFinish] ? workouts[pendingFinish].accent : "#E8843C"}
+          accent={workouts[pendingFinish] ? workouts[pendingFinish].accent : "#EF4444"}
           onSave={(note) => finalizeSession(pendingFinish, note)}
           onSkip={() => finalizeSession(pendingFinish, "")}
           onClose={() => setPendingFinish(null)}
@@ -1137,7 +1148,7 @@ function NoteModal({ accent, onSave, onSkip, onClose }) {
             autoFocus
           />
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-            <button onClick={onSkip} style={{ flex: 1, padding: "13px", background: "transparent", color: "#9a9aa2", border: "1.5px solid #2a2a30", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Pular</button>
+            <button onClick={onSkip} style={{ flex: 1, padding: "13px", background: "transparent", color: "#9a9aa2", border: "1.5px solid #2E3A4D", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Pular</button>
             <button onClick={() => onSave(note)} style={{ ...primaryBtn(accent), flex: 2, justifyContent: "center" }}><Icon.Check /> Concluir</button>
           </div>
         </div>
@@ -1160,7 +1171,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
           <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: workout.accent }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <div style={{ display: "inline-block", background: workout.accent, color: "#101013", fontWeight: 800, fontSize: 13, padding: "3px 11px", borderRadius: 6, letterSpacing: 1 }}>{workout.tag}</div>
+              <div style={{ display: "inline-block", background: workout.accent, color: onColor(workout.accent), fontWeight: 800, fontSize: 13, padding: "3px 11px", borderRadius: 6, letterSpacing: 1 }}>{workout.tag}</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 34, fontWeight: 700, lineHeight: 1.05, marginTop: 12, textTransform: "uppercase" }}>{workout.name}</div>
               <div style={{ color: "#8a8a92", fontSize: 14, marginTop: 6 }}>{workout.items.length} exercícios · {sp.setsDone}/{sp.setsTotal} séries</div>
             </div>
@@ -1189,7 +1200,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "28px 0 12px" }}>
         <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Sua semana</div>
-        <button onClick={onEditSchedule} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #2a2a30", borderRadius: 8, padding: "6px 12px", color: "#b0b0b8", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+        <button onClick={onEditSchedule} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #2E3A4D", borderRadius: 8, padding: "6px 12px", color: "#b0b0b8", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
           <Icon.Calendar /> Editar agenda
         </button>
       </div>
@@ -1204,12 +1215,12 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
             <button
               key={dayIdx}
               onClick={() => w && onOpen(key)}
-              style={{ ...rowCard, borderColor: isToday ? (w ? w.accent : "#3a3a42") : "#1f1f24", opacity: isToday ? 1 : 0.72, cursor: w ? "pointer" : "default" }}
+              style={{ ...rowCard, borderColor: isToday ? (w ? w.accent : "#3a3a42") : "#2A3344", opacity: isToday ? 1 : 0.72, cursor: w ? "pointer" : "default" }}
             >
               <span style={{ width: 44, flexShrink: 0, fontSize: 11, fontWeight: 800, color: isToday ? "#f0f0f2" : "#6a6a72", textTransform: "uppercase", textAlign: "left" }}>{DAYS[dayIdx].slice(0, 3)}</span>
               {w ? (
                 <React.Fragment>
-                  <span style={{ width: 34, height: 34, borderRadius: 8, background: w.accent, color: "#101013", fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
+                  <span style={{ width: 34, height: 34, borderRadius: 8, background: w.accent, color: onColor(w.accent), fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
                   <span style={{ flex: 1, textAlign: "left" }}>
                     <span style={{ display: "block", fontWeight: 600, fontSize: 15, color: "#f0f0f2" }}>{w.name}</span>
                     <span style={{ display: "block", fontSize: 12, color: "#7a7a82" }}>{isToday ? "Hoje" : ""} {w.items.length} exercícios</span>
@@ -1218,7 +1229,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
                 </React.Fragment>
               ) : (
                 <React.Fragment>
-                  <span style={{ width: 34, height: 34, borderRadius: 8, background: "#1a1a1f", color: "#4a4a52", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.Moon width={16} height={16} /></span>
+                  <span style={{ width: 34, height: 34, borderRadius: 8, background: "#1B2536", color: "#4a4a52", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.Moon width={16} height={16} /></span>
                   <span style={{ flex: 1, textAlign: "left", color: "#6a6a72", fontWeight: 600, fontSize: 15 }}>Descanso</span>
                 </React.Fragment>
               )}
@@ -1229,9 +1240,9 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
 
       <div style={{ ...card, marginTop: 24, padding: 18, borderColor: "#3a2f1f", background: "#1a1610" }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <span style={{ color: "#E8843C", flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span>
+          <span style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span>
           <div style={{ fontSize: 13, color: "#c9b896", lineHeight: 1.5 }}>
-            <strong style={{ color: "#E8843C" }}>Lembrete do programa.</strong> Rode por 8–10 semanas antes de reavaliar. Qualidade de execução vale mais que quantidade — se uma sessão pesar, corte os 2 últimos isoladores.
+            <strong style={{ color: "#EF4444" }}>Lembrete do programa.</strong> Rode por 8–10 semanas antes de reavaliar. Qualidade de execução vale mais que quantidade — se uma sessão pesar, corte os 2 últimos isoladores.
           </div>
         </div>
       </div>
@@ -1252,8 +1263,8 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
                   const wp = sessionProgress(w.key);
                   const isScheduled = workout && w.key === workout.key;
                   return (
-                    <button key={w.key} onClick={() => { setPickOther(false); onOpen(w.key); }} style={{ ...rowCard, cursor: "pointer", borderColor: isScheduled ? w.accent : "#1f1f24" }}>
-                      <span style={{ width: 38, height: 38, borderRadius: 9, background: w.accent, color: "#101013", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
+                    <button key={w.key} onClick={() => { setPickOther(false); onOpen(w.key); }} style={{ ...rowCard, cursor: "pointer", borderColor: isScheduled ? w.accent : "#2A3344" }}>
+                      <span style={{ width: 38, height: 38, borderRadius: 9, background: w.accent, color: onColor(w.accent), fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
                       <span style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
                         <span style={{ display: "block", fontWeight: 600, fontSize: 15, color: "#f0f0f2" }}>{w.name}</span>
                         <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 1 }}>
@@ -1301,7 +1312,7 @@ function ScheduleEditor({ schedule, workouts, onSet, onClose }) {
               </select>
             </div>
           ))}
-          <button onClick={onClose} style={{ ...primaryBtn("#E8843C"), width: "100%", marginTop: 18 }}>Pronto</button>
+          <button onClick={onClose} style={{ ...primaryBtn("#EF4444"), width: "100%", marginTop: 18 }}>Pronto</button>
         </div>
       </div>
     </div>
@@ -1317,7 +1328,7 @@ function WorkoutsView({ workouts, onOpen, onEdit, onNew }) {
     <div style={{ padding: "22px 18px 30px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Seus treinos</div>
-        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "#E8843C", border: "none", borderRadius: 8, padding: "8px 14px", color: "#101013", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "#EF4444", border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
           <Icon.Plus /> Novo treino
         </button>
       </div>
@@ -1325,13 +1336,13 @@ function WorkoutsView({ workouts, onOpen, onEdit, onNew }) {
         {list.map((w) => (
           <div key={w.key} style={{ ...card, padding: 0, display: "flex", alignItems: "stretch", overflow: "hidden" }}>
             <button onClick={() => onOpen(w.key)} style={{ flex: 1, padding: 18, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", background: "none", border: "none", minWidth: 0 }}>
-              <span style={{ width: 44, height: 44, borderRadius: 10, background: w.accent, color: "#101013", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
+              <span style={{ width: 44, height: 44, borderRadius: 10, background: w.accent, color: onColor(w.accent), fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{w.tag}</span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "block", fontWeight: 700, fontSize: 16, color: "#f0f0f2" }}>{w.name}</span>
                 <span style={{ display: "block", fontSize: 13, color: "#7a7a82", marginTop: 2 }}>{w.items.length} exercícios</span>
               </span>
             </button>
-            <button onClick={() => onEdit(w.key)} style={{ width: 54, background: "#191920", border: "none", borderLeft: "1px solid #1f1f24", color: "#9a9aa2", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} aria-label={"Editar " + w.name}>
+            <button onClick={() => onEdit(w.key)} style={{ width: 54, background: "#191920", border: "none", borderLeft: "1px solid #2A3344", color: "#9a9aa2", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} aria-label={"Editar " + w.name}>
               <Icon.Pencil />
             </button>
           </div>
@@ -1367,14 +1378,14 @@ function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onS
 
   return (
     <div>
-      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#101013", borderBottom: "1px solid #1f1f24", padding: "14px 18px" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F19", borderBottom: "1px solid #2A3344", padding: "14px 18px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={onBack} style={{ background: "none", border: "none", color: "#9a9aa2", cursor: "pointer", display: "flex", padding: 0 }}>
             <span style={{ transform: "rotate(180deg)", display: "flex" }}><Icon.Arrow /></span>
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ background: workout.accent, color: "#101013", fontWeight: 800, fontSize: 11, padding: "2px 8px", borderRadius: 5 }}>{workout.tag}</span>
+              <span style={{ background: workout.accent, color: onColor(workout.accent), fontWeight: 800, fontSize: 11, padding: "2px 8px", borderRadius: 5 }}>{workout.tag}</span>
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{workout.name}</span>
             </div>
             {elapsed != null && (
@@ -1443,7 +1454,7 @@ function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onS
         {workout.items.length > 0 && hasProgress && (
           <button
             onClick={() => { if (confirmReset) { onReset(); setConfirmReset(false); setResetNonce((n) => n + 1); } else setConfirmReset(true); }}
-            style={{ width: "100%", marginTop: 12, padding: "13px", background: confirmReset ? "#e36a5a" : "transparent", color: confirmReset ? "#101013" : "#9a9aa2", border: "1.5px solid " + (confirmReset ? "#e36a5a" : "#2e2e36"), borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            style={{ width: "100%", marginTop: 12, padding: "13px", background: confirmReset ? "#e36a5a" : "transparent", color: confirmReset ? "#0B0F19" : "#9a9aa2", border: "1.5px solid " + (confirmReset ? "#e36a5a" : "#2E3A4D"), borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
           >
             <Icon.Refresh /> {confirmReset ? "Confirmar — apagar o andamento" : "Reiniciar treino"}
           </button>
@@ -1500,12 +1511,12 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
   };
 
   return (
-    <div style={{ ...card, padding: 0, overflow: "hidden", borderColor: checked ? accent + "66" : "#1f1f24" }}>
+    <div style={{ ...card, padding: 0, overflow: "hidden", borderColor: checked ? accent + "66" : "#2A3344" }}>
       <div style={{ display: "flex", alignItems: "stretch" }}>
         <button onClick={onToggleAll} aria-label="marcar exercício completo" style={{
           width: 50, flexShrink: 0, border: "none", cursor: "pointer",
-          background: checked ? accent : "#1a1a1f",
-          color: checked ? "#101013" : "#3a3a42",
+          background: checked ? accent : "#1B2536",
+          color: checked ? "#0B0F19" : "#3a3a42",
           display: "flex", alignItems: "center", justifyContent: "center",
           transition: "all .2s",
         }}>
@@ -1522,7 +1533,7 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
 
           {isSub && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#E3C84C", background: "#221f10", border: "1px solid #3a3520", borderRadius: 5, padding: "2px 7px" }}>Substituído nesta sessão</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", background: "#221f10", border: "1px solid #3a3520", borderRadius: 5, padding: "2px 7px" }}>Substituído nesta sessão</span>
               <button onClick={onUndoSub} style={{ background: "none", border: "none", color: "#8a8a92", fontSize: 11.5, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}>desfazer</button>
             </div>
           )}
@@ -1538,9 +1549,9 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
                 return (
                   <button key={i} onClick={() => tapSet(i)} aria-label={"série " + (i + 1)} style={{
                     width: 36, height: 36, borderRadius: 10, cursor: "pointer",
-                    border: done ? "none" : "1.5px solid #2e2e36",
-                    background: done ? accent : "#16161b",
-                    color: done ? "#101013" : "#8a8a92",
+                    border: done ? "none" : "1.5px solid #2E3A4D",
+                    background: done ? accent : "#161E2E",
+                    color: done ? "#0B0F19" : "#8a8a92",
                     fontWeight: 800, fontSize: 13.5,
                     transition: "all .15s",
                   }}>{i + 1}</button>
@@ -1567,7 +1578,7 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
 
           {(ex.warn || ex.note) ? (
             <div style={{ display: "flex", gap: 7, alignItems: "flex-start", marginTop: 10, padding: "8px 10px", borderRadius: 8, background: ex.warn ? "#1a1410" : "#15151a", border: ex.warn ? "1px solid #3a2f1f" : "1px solid #22222a" }}>
-              {ex.warn ? <span style={{ color: "#E8843C", flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span> : null}
+              {ex.warn ? <span style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span> : null}
               <span style={{ fontSize: 12.5, color: ex.warn ? "#c9b896" : "#9a9aa2", lineHeight: 1.45 }}>{ex.warn || ex.note}</span>
             </div>
           ) : null}
@@ -1585,7 +1596,7 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
 
           {open && (
             <div style={{ display: "flex", gap: 8, marginTop: 11, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: accent, background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 6, padding: "5px 8px" }}>S{Math.min(setsDone + 1, ex.sets)}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: accent, background: "#1B2536", border: "1px solid #2E3A4D", borderRadius: 6, padding: "5px 8px" }}>S{Math.min(setsDone + 1, ex.sets)}</span>
               <input inputMode="decimal" placeholder={last ? String(last.weight) : "kg"} value={weight} onChange={(e) => setWeight(e.target.value)} style={inputStyle} />
               <span style={{ color: "#5a5a62" }}>×</span>
               <input inputMode="numeric" placeholder="reps" value={reps} onChange={(e) => setReps(e.target.value)} style={inputStyle} />
@@ -1615,7 +1626,7 @@ const MuscleChips = ({ muscles, size = "sm" }) => {
         return (
           <span key={i} style={{
             fontSize: fs, fontWeight: 700, padding: pad, borderRadius: 6, lineHeight: 1.2,
-            color: it.primary ? "#101013" : c,
+            color: it.primary ? "#0B0F19" : c,
             background: it.primary ? c : "transparent",
             border: "1px solid " + c + (it.primary ? "" : "55"),
             opacity: it.primary ? 1 : 0.92,
@@ -1677,8 +1688,8 @@ function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#0d0d0f", zIndex: 50, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
-      <div style={{ ...panelHeader, borderBottom: "1px solid #1f1f24", flexShrink: 0 }}>
+    <div style={{ position: "fixed", inset: 0, background: "#0B0F19", zIndex: 50, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
+      <div style={{ ...panelHeader, borderBottom: "1px solid #2A3344", flexShrink: 0 }}>
         <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{isNew ? "Novo treino" : "Editar treino"}</span>
         <button onClick={onClose} style={iconBtn}><Icon.X /></button>
       </div>
@@ -1707,7 +1718,7 @@ function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <label style={{ ...labelStyle, marginBottom: 0 }}>Exercícios ({draft.items.length})</label>
-          <button onClick={() => setPicking(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: draft.accent, border: "none", borderRadius: 8, padding: "7px 12px", color: "#101013", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
+          <button onClick={() => setPicking(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: draft.accent, border: "none", borderRadius: 8, padding: "7px 12px", color: onColor(draft.accent), fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
             <Icon.Plus /> Adicionar
           </button>
         </div>
@@ -1753,7 +1764,7 @@ function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose
         </button>
 
         {!isNew && onDelete && (
-          <button onClick={() => confirmDel ? onDelete(draft.key) : setConfirmDel(true)} style={{ width: "100%", marginTop: 12, padding: "13px", background: confirmDel ? "#e36a5a" : "transparent", color: confirmDel ? "#101013" : "#e36a5a", border: "1.5px solid #e36a5a", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+          <button onClick={() => confirmDel ? onDelete(draft.key) : setConfirmDel(true)} style={{ width: "100%", marginTop: 12, padding: "13px", background: confirmDel ? "#e36a5a" : "transparent", color: confirmDel ? "#0B0F19" : "#e36a5a", border: "1.5px solid #e36a5a", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
             {confirmDel ? "Confirmar exclusão" : "Excluir treino"}
           </button>
         )}
@@ -1826,7 +1837,7 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
           </div>
           {usedMuscles.length > 0 && (
             <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingTop: 12, paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
-              <button onClick={() => setFilter("")} style={filterChip(filter === "", "#E8843C")}>Todos</button>
+              <button onClick={() => setFilter("")} style={filterChip(filter === "", "#EF4444")}>Todos</button>
               {usedMuscles.map((id) => (
                 <button key={id} onClick={() => setFilter(filter === id ? "" : id)} style={filterChip(filter === id, muscleColor(id))}>
                   {muscleName(id)}
@@ -1835,7 +1846,7 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
             </div>
           )}
           {onCreateNew && (
-            <button onClick={onCreateNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#E8843C", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "12px 0 0" }}>
+            <button onClick={onCreateNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "12px 0 0" }}>
               <Icon.Plus /> Criar exercício novo
             </button>
           )}
@@ -1851,7 +1862,7 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
                     {exMuscles(ex).p ? <span style={{ display: "block", marginTop: 6 }}><MuscleChips muscles={ex.muscles} /></span> : null}
                     <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 6 }}>{ex.sets}× {ex.reps} · {ex.rest}</span>
                   </span>
-                  <span style={{ color: added ? "#5EB87A" : "#E8843C", display: "flex", flexShrink: 0 }}>{added ? <Icon.Check /> : <Icon.Plus />}</span>
+                  <span style={{ color: added ? "#10B981" : "#EF4444", display: "flex", flexShrink: 0 }}>{added ? <Icon.Check /> : <Icon.Plus />}</span>
                 </button>
               );
             })}
@@ -1939,9 +1950,9 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
               return (
                 <button key={id} onClick={() => toggleMuscle(id)} style={{
                   fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 8, cursor: "pointer",
-                  color: st === "p" ? "#101013" : (st === "s" ? c : "#8a8a92"),
-                  background: st === "p" ? c : (st === "s" ? c + "22" : "#16161b"),
-                  border: "1.5px solid " + (st ? c : "#2a2a30"),
+                  color: st === "p" ? "#0B0F19" : (st === "s" ? c : "#8a8a92"),
+                  background: st === "p" ? c : (st === "s" ? c + "22" : "#161E2E"),
+                  border: "1.5px solid " + (st ? c : "#2E3A4D"),
                   transition: "all .12s",
                 }}>
                   {st === "p" && "★ "}{muscleName(id)}
@@ -1966,7 +1977,7 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
 
           <label style={labelStyle}>Vídeo de demonstração (opcional)</label>
           <input value={draft.video || ""} onChange={(e) => set({ video: e.target.value })} placeholder="Cole o link do YouTube" style={{ ...textInput, marginBottom: 4 }} />
-          <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 12, minHeight: 15, color: draft.video ? (ytId(draft.video) ? "#5EB87A" : "#e36a5a") : "transparent" }}>
+          <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 12, minHeight: 15, color: draft.video ? (ytId(draft.video) ? "#10B981" : "#e36a5a") : "transparent" }}>
             {draft.video ? (ytId(draft.video) ? "✓ Vídeo reconhecido" : "Link não reconhecido — cole um link do YouTube") : "."}
           </div>
 
@@ -1978,7 +1989,7 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
 
           {error && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{error}</div>}
 
-          <button onClick={save} style={{ ...primaryBtn("#E8843C"), width: "100%", justifyContent: "center" }}>
+          <button onClick={save} style={{ ...primaryBtn("#EF4444"), width: "100%", justifyContent: "center" }}>
             <Icon.Check /> Salvar exercício
           </button>
 
@@ -1988,7 +1999,7 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
                 Usado em {usage} treino{usage > 1 ? "s" : ""} — remova-o dos treinos antes de excluir.
               </div>
             ) : (
-              <button onClick={() => confirmDel ? onDelete(draft.id) : setConfirmDel(true)} style={{ width: "100%", marginTop: 12, padding: "13px", background: confirmDel ? "#e36a5a" : "transparent", color: confirmDel ? "#101013" : "#e36a5a", border: "1.5px solid #e36a5a", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={() => confirmDel ? onDelete(draft.id) : setConfirmDel(true)} style={{ width: "100%", marginTop: 12, padding: "13px", background: confirmDel ? "#e36a5a" : "transparent", color: confirmDel ? "#0B0F19" : "#e36a5a", border: "1.5px solid #e36a5a", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                 {confirmDel ? "Confirmar exclusão" : "Excluir exercício"}
               </button>
             )
@@ -2033,7 +2044,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
     <div style={{ padding: "22px 18px 30px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Biblioteca · {Object.keys(lib).length}</div>
-        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "#E8843C", border: "none", borderRadius: 8, padding: "8px 14px", color: "#101013", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "#EF4444", border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
           <Icon.Plus /> Novo
         </button>
       </div>
@@ -2044,7 +2055,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
       </div>
 
       <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 12, WebkitOverflowScrolling: "touch" }}>
-        <button onClick={() => setFilter("")} style={filterChip(filter === "", "#E8843C")}>Todos</button>
+        <button onClick={() => setFilter("")} style={filterChip(filter === "", "#EF4444")}>Todos</button>
         {usedMuscles.map((id) => (
           <button key={id} onClick={() => setFilter(filter === id ? "" : id)} style={filterChip(filter === id, muscleColor(id))}>
             {muscleName(id)}
@@ -2060,8 +2071,8 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontWeight: 600, fontSize: 14, color: "#f0f0f2", lineHeight: 1.3 }}>{ex.name}</span>
-                  {ex.warn ? <span style={{ color: "#E8843C", display: "flex", flexShrink: 0 }}><Icon.Warn width={13} height={13} /></span> : null}
-                  {ytId(ex.video) ? <span style={{ color: "#5EB87A", display: "flex", flexShrink: 0 }}><Icon.Play width={12} height={12} /></span> : null}
+                  {ex.warn ? <span style={{ color: "#EF4444", display: "flex", flexShrink: 0 }}><Icon.Warn width={13} height={13} /></span> : null}
+                  {ytId(ex.video) ? <span style={{ color: "#10B981", display: "flex", flexShrink: 0 }}><Icon.Play width={12} height={12} /></span> : null}
                 </span>
                 {exMuscles(ex).p ? <span style={{ display: "block", marginTop: 7 }}><MuscleChips muscles={ex.muscles} /></span> : null}
                 <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 6 }}>
@@ -2181,13 +2192,13 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
     <div style={{ padding: "22px 18px 30px" }}>
       <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 18, WebkitOverflowScrolling: "touch" }}>
         {PERIODS.map((p) => (
-          <button key={p.id} onClick={() => setPeriod(p.id)} style={filterChip(period === p.id, "#E8843C")}>{p.label}</button>
+          <button key={p.id} onClick={() => setPeriod(p.id)} style={filterChip(period === p.id, "#EF4444")}>{p.label}</button>
         ))}
       </div>
 
       <div style={{ display: "flex", gap: 11, marginBottom: 22 }}>
-        <MetricCard value={completedSessions} label="treinos concluídos" accent="#E8843C" icon={<Icon.Trophy />} />
-        <MetricCard value={totalSets} label="cargas registradas" accent="#5EB87A" icon={<Icon.Dumbbell />} />
+        <MetricCard value={completedSessions} label="treinos concluídos" accent="#EF4444" icon={<Icon.Trophy />} />
+        <MetricCard value={totalSets} label="cargas registradas" accent="#10B981" icon={<Icon.Dumbbell />} />
       </div>
 
       {weekly && (
@@ -2223,7 +2234,7 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
               return (
                 <div key={sid} style={{ ...card, padding: 0, overflow: "hidden" }}>
                   <button onClick={() => hasDetails && setExpandedSession(isOpen ? null : sid)} style={{ width: "100%", padding: "13px 14px", background: "none", border: "none", cursor: hasDetails ? "pointer" : "default", textAlign: "left", display: "flex", alignItems: "center", gap: 11 }}>
-                    <span style={{ width: 32, height: 32, borderRadius: 8, background: accent, color: "#101013", fontWeight: 800, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{h.tag || "•"}</span>
+                    <span style={{ width: 32, height: 32, borderRadius: 8, background: accent, color: onColor(accent), fontWeight: 800, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{h.tag || "•"}</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontWeight: 600, fontSize: 14, color: "#f0f0f2" }}>{h.name}</span>
                       <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 2 }}>
@@ -2234,7 +2245,7 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
                     </span>
                     <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
                       {h.duration != null && <span style={{ fontSize: 12.5, fontWeight: 800, color: "#b0b0b8" }}>{fmtDur(h.duration)}</span>}
-                      {h.note && <span style={{ color: "#E3C84C", display: "flex" }}><Icon.Pencil width={12} height={12} /></span>}
+                      {h.note && <span style={{ color: "#F59E0B", display: "flex" }}><Icon.Pencil width={12} height={12} /></span>}
                     </span>
                     <span
                       role="button"
@@ -2248,10 +2259,10 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
                     <div style={{ padding: "0 14px 13px 57px", fontSize: 13, color: "#c9c9ce", lineHeight: 1.5 }}>{h.note}</div>
                   )}
                   {isConfirming && (
-                    <div style={{ padding: "0 14px 13px", display: "flex", alignItems: "center", gap: 10, borderTop: "1px solid #1f1f24", paddingTop: 12 }}>
+                    <div style={{ padding: "0 14px 13px", display: "flex", alignItems: "center", gap: 10, borderTop: "1px solid #2A3344", paddingTop: 12 }}>
                       <span style={{ flex: 1, fontSize: 12.5, color: "#b8736a", lineHeight: 1.4 }}>Excluir esta sessão do histórico? Não afeta as cargas já registradas.</span>
-                      <button onClick={() => setConfirmDelete(null)} style={{ background: "none", border: "1px solid #2e2e36", borderRadius: 8, padding: "7px 12px", color: "#9a9aa2", fontSize: 12.5, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Cancelar</button>
-                      <button onClick={() => { onDeleteSession(sid); setConfirmDelete(null); if (isOpen) setExpandedSession(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 8, padding: "7px 12px", color: "#101013", fontSize: 12.5, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
+                      <button onClick={() => setConfirmDelete(null)} style={{ background: "none", border: "1px solid #2E3A4D", borderRadius: 8, padding: "7px 12px", color: "#9a9aa2", fontSize: 12.5, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Cancelar</button>
+                      <button onClick={() => { onDeleteSession(sid); setConfirmDelete(null); if (isOpen) setExpandedSession(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 8, padding: "7px 12px", color: "#FFFFFF", fontSize: 12.5, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
                     </div>
                   )}
                 </div>
@@ -2291,13 +2302,13 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
               return (
                 <div key={exId} style={{ ...card, padding: 0, overflow: "hidden" }}>
                   <button onClick={() => setExpanded(isOpen ? null : exId)} style={{ width: "100%", padding: 16, background: "none", border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ width: 30, height: 30, borderRadius: 7, background: accent, color: "#101013", fontWeight: 800, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{tag}</span>
+                    <span style={{ width: 30, height: 30, borderRadius: 7, background: accent, color: onColor(accent), fontWeight: 800, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{tag}</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontWeight: 600, fontSize: 14, color: "#f0f0f2", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
                       <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 2 }}>{arr.length} registro{arr.length > 1 ? "s" : ""} · atual {last.weight}kg</span>
                     </span>
                     {delta !== 0 && (
-                      <span style={{ fontSize: 13, fontWeight: 800, color: delta > 0 ? "#5EB87A" : "#e36a5a" }}>{delta > 0 ? "+" : ""}{delta}kg</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: delta > 0 ? "#10B981" : "#e36a5a" }}>{delta > 0 ? "+" : ""}{delta}kg</span>
                     )}
                   </button>
                   {isOpen && (
@@ -2323,8 +2334,8 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
                               {isConfirming && (
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0 10px", justifyContent: "flex-end" }}>
                                   <span style={{ flex: 1, fontSize: 12, color: "#b8736a", lineHeight: 1.4 }}>Excluir este registro de carga?</span>
-                                  <button onClick={() => setConfirmDeleteLog(null)} style={{ background: "none", border: "1px solid #2e2e36", borderRadius: 7, padding: "5px 10px", color: "#9a9aa2", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Cancelar</button>
-                                  <button onClick={() => { onDeleteLog(exId, l); setConfirmDeleteLog(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 7, padding: "5px 10px", color: "#101013", fontSize: 12, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
+                                  <button onClick={() => setConfirmDeleteLog(null)} style={{ background: "none", border: "1px solid #2E3A4D", borderRadius: 7, padding: "5px 10px", color: "#9a9aa2", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Cancelar</button>
+                                  <button onClick={() => { onDeleteLog(exId, l); setConfirmDeleteLog(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 7, padding: "5px 10px", color: "#FFFFFF", fontSize: 12, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>Excluir</button>
                                 </div>
                               )}
                             </div>
@@ -2357,7 +2368,7 @@ function WeeklyBars({ buckets }) {
         const y = H - padB - h;
         return (
           <g key={i}>
-            <rect x={x} y={y} width={bw * 0.64} height={h} rx={4} fill={b.sets > 0 ? "#E8843C" : "#26262b"} opacity={b.sets > 0 ? 1 : 0.6} />
+            <rect x={x} y={y} width={bw * 0.64} height={h} rx={4} fill={b.sets > 0 ? "#EF4444" : "#2A3344"} opacity={b.sets > 0 ? 1 : 0.6} />
             {b.sets > 0 && <text x={x + bw * 0.32} y={y - 5} textAnchor="middle" fontSize="11" fontWeight="800" fill="#d0d0d4">{b.sets}</text>}
             <text x={x + bw * 0.32} y={H - 7} textAnchor="middle" fontSize="9" fontWeight="600" fill="#6a6a72">{b.label}</text>
           </g>
@@ -2381,7 +2392,7 @@ function BackupSection({ kind, title, desc, expectedKeys, onExport }) {
       try {
         const parsed = JSON.parse(reader.result);
         if (parsed.app !== "ciclo7" || !parsed.data || typeof parsed.data !== "object") {
-          setMsgColor("#e36a5a"); setMsg("Arquivo inválido — não parece um backup do Ciclo7.");
+          setMsgColor("#e36a5a"); setMsg("Arquivo inválido — não parece um backup do Forge.");
           setPendingImport(null); return;
         }
         // valida que o arquivo é do tipo certo (acervo vs histórico)
@@ -2423,10 +2434,10 @@ function BackupSection({ kind, title, desc, expectedKeys, onExport }) {
       <div style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f2", marginBottom: 4 }}>{title}</div>
       <p style={{ color: "#8a8a92", fontSize: 12.5, lineHeight: 1.5, margin: "0 0 14px" }}>{desc}</p>
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={onExport} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+        <button onClick={onExport} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1B2536", border: "1px solid #2E3A4D", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
           <Icon.Download /> Exportar
         </button>
-        <button onClick={() => fileRef.current && fileRef.current.click()} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1a1a1f", border: "1px solid #2a2a30", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+        <button onClick={() => fileRef.current && fileRef.current.click()} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", background: "#1B2536", border: "1px solid #2E3A4D", borderRadius: 10, color: "#e0e0e4", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
           <Icon.Upload /> Importar
         </button>
         <input ref={fileRef} type="file" accept=".json,application/json" onChange={handleFile} style={{ display: "none" }} />
@@ -2434,11 +2445,11 @@ function BackupSection({ kind, title, desc, expectedKeys, onExport }) {
       {pendingImport && (
         <div style={{ marginTop: 14, padding: 14, background: "#1a1610", border: "1px solid #3a2f1f", borderRadius: 10 }}>
           <div style={{ fontSize: 13, color: "#c9b896", lineHeight: 1.5, marginBottom: 10 }}>
-            <strong style={{ color: "#E8843C" }}>Atenção:</strong> importar substitui {kind === "acervo" ? "seu acervo (biblioteca, treinos e agenda)" : "seu histórico (sessões e cargas)"} pelo conteúdo do backup{pendingImport.exportedAt ? " (de " + new Date(pendingImport.exportedAt).toLocaleDateString("pt-BR") + ")" : ""}. Não dá pra desfazer.
+            <strong style={{ color: "#EF4444" }}>Atenção:</strong> importar substitui {kind === "acervo" ? "seu acervo (biblioteca, treinos e agenda)" : "seu histórico (sessões e cargas)"} pelo conteúdo do backup{pendingImport.exportedAt ? " (de " + new Date(pendingImport.exportedAt).toLocaleDateString("pt-BR") + ")" : ""}. Não dá pra desfazer.
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setPendingImport(null)} style={{ flex: 1, padding: "10px", background: "transparent", color: "#9a9aa2", border: "1px solid #2a2a30", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
-            <button onClick={confirmImport} style={{ flex: 1, padding: "10px", background: "#E8843C", color: "#101013", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Confirmar importação</button>
+            <button onClick={() => setPendingImport(null)} style={{ flex: 1, padding: "10px", background: "transparent", color: "#9a9aa2", border: "1px solid #2E3A4D", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+            <button onClick={confirmImport} style={{ flex: 1, padding: "10px", background: "#EF4444", color: onColor("#EF4444"), border: "none", borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Confirmar importação</button>
           </div>
         </div>
       )}
@@ -2480,7 +2491,7 @@ function MuscleVolumeBars({ rows }) {
         return (
           <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ width: 96, flexShrink: 0, fontSize: 12, fontWeight: 600, color: "#c0c0c6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{muscleName(r.id)}</span>
-            <div style={{ flex: 1, height: 18, background: "#16161b", borderRadius: 6, overflow: "hidden", position: "relative" }}>
+            <div style={{ flex: 1, height: 18, background: "#161E2E", borderRadius: 6, overflow: "hidden", position: "relative" }}>
               <div style={{ width: pct + "%", height: "100%", background: c, borderRadius: 6, transition: "width .4s", minWidth: 3 }} />
             </div>
             <span style={{ width: 30, flexShrink: 0, textAlign: "right", fontSize: 12.5, fontWeight: 800, color: "#e0e0e4", fontVariantNumeric: "tabular-nums" }}>{fmt(r.sets)}</span>
@@ -2526,61 +2537,61 @@ function MiniChart({ arr, accent }) {
 // ============================================================
 const root = {
   maxWidth: 480, margin: "0 auto", height: "100vh", display: "flex", flexDirection: "column",
-  background: "#0d0d0f", color: "#f0f0f2",
+  background: "#0B0F19", color: "#f0f0f2",
   fontFamily: "'Inter', -apple-system, system-ui, sans-serif",
 };
 const headerBar = {
   display: "flex", justifyContent: "space-between", alignItems: "center",
-  padding: "16px 18px", borderBottom: "1px solid #1a1a1f", flexShrink: 0,
+  padding: "16px 18px", borderBottom: "1px solid #1B2536", flexShrink: 0,
 };
 const navBar = {
-  display: "flex", borderTop: "1px solid #1a1a1f", background: "#0d0d0f", flexShrink: 0,
+  display: "flex", borderTop: "1px solid #1B2536", background: "#0B0F19", flexShrink: 0,
   paddingBottom: "env(safe-area-inset-bottom, 0px)",
 };
 const navBtn = (active) => ({
   flex: 1, padding: "12px 0 14px", background: "none", border: "none", cursor: "pointer",
   display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-  color: active ? "#E8843C" : "#5a5a62", fontSize: 11, fontWeight: 600,
-  borderTop: active ? "2px solid #E8843C" : "2px solid transparent", marginTop: -1,
+  color: active ? "#EF4444" : "#5a5a62", fontSize: 11, fontWeight: 600,
+  borderTop: active ? "2px solid #EF4444" : "2px solid transparent", marginTop: -1,
 });
-const card = { background: "#141417", border: "1px solid #1f1f24", borderRadius: 14 };
+const card = { background: "#161E2E", border: "1px solid #2A3344", borderRadius: 14 };
 const rowCard = { ...card, display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", width: "100%" };
 const primaryBtn = (accent) => ({
   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-  background: accent, color: "#101013", border: "none", borderRadius: 11,
+  background: accent, color: onColor(accent), border: "none", borderRadius: 11,
   padding: "14px 20px", fontSize: 15, fontWeight: 700, cursor: "pointer",
 });
 const pillBtn = (accent, filled) => ({
   padding: "12px 22px", borderRadius: 999, fontSize: 15, fontWeight: 700, cursor: "pointer",
   border: filled ? "none" : "1.5px solid " + accent,
   background: filled ? accent : "transparent",
-  color: filled ? "#101013" : accent,
+  color: filled ? "#0B0F19" : accent,
 });
 const chipBtn = (color, weight) => ({
-  display: "flex", alignItems: "center", gap: 5, background: "#1a1a1f",
-  border: "1px solid #2a2a30", borderRadius: 7, padding: "4px 9px",
+  display: "flex", alignItems: "center", gap: 5, background: "#1B2536",
+  border: "1px solid #2E3A4D", borderRadius: 7, padding: "4px 9px",
   color: color, fontSize: 12, fontWeight: weight || 600, cursor: "pointer",
 });
 const filterChip = (active, color) => ({
   flexShrink: 0, whiteSpace: "nowrap", cursor: "pointer",
   fontSize: 12.5, fontWeight: 700, padding: "7px 13px", borderRadius: 999,
-  color: active ? "#101013" : color,
+  color: active ? "#0B0F19" : color,
   background: active ? color : "transparent",
   border: "1.5px solid " + (active ? color : color + "44"),
   transition: "all .12s",
 });
 const inputStyle = {
-  width: 64, padding: "9px 10px", background: "#0d0d0f", border: "1px solid #2a2a30",
+  width: 64, padding: "9px 10px", background: "#0B0F19", border: "1px solid #2E3A4D",
   borderRadius: 8, color: "#f0f0f2", fontSize: 14, fontWeight: 600, textAlign: "center",
   outline: "none",
 };
 const textInput = {
-  width: "100%", padding: "12px 13px", background: "#0d0d0f", border: "1px solid #2a2a30",
+  width: "100%", padding: "12px 13px", background: "#0B0F19", border: "1px solid #2E3A4D",
   borderRadius: 10, color: "#f0f0f2", fontSize: 14.5, fontWeight: 500, outline: "none",
   boxSizing: "border-box",
 };
 const selectStyle = {
-  flex: 1, padding: "11px 12px", background: "#0d0d0f", border: "1px solid #2a2a30",
+  flex: 1, padding: "11px 12px", background: "#0B0F19", border: "1px solid #2E3A4D",
   borderRadius: 10, color: "#f0f0f2", fontSize: 14, fontWeight: 600, outline: "none",
   appearance: "none", WebkitAppearance: "none",
 };
@@ -2597,7 +2608,7 @@ const overlay = {
   display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 14,
 };
 const panel = {
-  background: "#121215", border: "1px solid #26262b", borderRadius: 18, width: "100%",
+  background: "#121215", border: "1px solid #2A3344", borderRadius: 18, width: "100%",
   maxWidth: 440,
 };
 const panelHeader = {
@@ -2612,8 +2623,8 @@ const globalCss = `
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; }
   ::-webkit-scrollbar { width: 0; }
-  button:focus-visible { outline: 2px solid #E8843C; outline-offset: 2px; }
-  input:focus, textarea:focus, select:focus { border-color: #E8843C; }
+  button:focus-visible { outline: 2px solid #EF4444; outline-offset: 2px; }
+  input:focus, textarea:focus, select:focus { border-color: #EF4444; }
   @keyframes ciclo7-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes ciclo7-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.86); opacity: 0.62; } }
   .ciclo7-dots::after { content: ""; animation: ciclo7-dots 1.4s steps(1) infinite; }
