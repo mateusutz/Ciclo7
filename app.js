@@ -221,7 +221,8 @@ const KEY_LIBRARY = "library:v1";
 const KEY_WORKOUTS = "workouts:v1";
 const KEY_SCHEDULE = "schedule:v1";
 const KEY_HISTORY = "history:v1";
-const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY];
+const KEY_PROFILE = "profile:v1";
+const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY, KEY_PROFILE];
 
 // uid do usuário logado; setado pelo App ao autenticar. Sem uid, cai no localStorage.
 let CURRENT_UID = null;
@@ -264,7 +265,7 @@ async function storeSet(key, value) {
 }
 
 const ACERVO_KEYS = [KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE];
-const HISTORICO_KEYS = [KEY_HISTORY, KEY_LOGS];
+const HISTORICO_KEYS = [KEY_HISTORY, KEY_LOGS, KEY_PROFILE];
 
 function downloadJson(payload, filename) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -329,6 +330,7 @@ const Icon = {
   Upload: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>),
   Logout: (p) => (<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>),
   Grid: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>),
+  User: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>),
   Flame: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17c1.5 0 2.5-1 2.5-2.5 0-1-.5-2-1.5-3 0 0 .5 2-1 2.5 0-1.5-1-3-2-4-.5 2-2 3-2 5a4 4 0 0 0 8 0c0-2.5-2-4.5-2.5-6.5-1 1-1.5 2.5-2.5 3.5" /><path d="M12 2c1 3 4 5 4 9a4 4 0 0 1-8 0c0-1 .3-2 .7-2.8" /></svg>),
 };
 
@@ -656,6 +658,15 @@ function ModuleChooser({ onChoose }) {
           </button>
         ))}
       </div>
+
+      <button onClick={() => onChoose("perfil")} style={{ ...rowCard, marginTop: 14, cursor: "pointer" }}>
+        <span style={{ width: 40, height: 40, borderRadius: 10, background: "#1B2536", color: "#9a9aa2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.User /></span>
+        <span style={{ flex: 1, textAlign: "left" }}>
+          <span style={{ display: "block", fontWeight: 700, fontSize: 15, color: "#f0f0f2" }}>Perfil</span>
+          <span style={{ display: "block", fontSize: 12.5, color: "#7a7a82", marginTop: 1 }}>Sua conta, dados corporais e objetivo</span>
+        </span>
+        <span style={{ color: "#5a5a62", display: "flex", flexShrink: 0 }}><Icon.Arrow /></span>
+      </button>
     </div>
   );
 }
@@ -685,6 +696,174 @@ function NutritionView({ tab }) {
 }
 
 // ============================================================
+// PROFILE VIEW (Conta, Dados corporais, Objetivo)
+// ============================================================
+function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight }) {
+  const p = profile || {};
+  const [name, setName] = React.useState(p.name || "");
+  const [birth, setBirth] = React.useState(p.birth || "");
+  const [sex, setSex] = React.useState(p.sex || "");
+  const [height, setHeight] = React.useState(p.height || "");
+  const [goal, setGoal] = React.useState(p.goal || "");
+  const [savedMsg, setSavedMsg] = React.useState(false);
+  const [newWeight, setNewWeight] = React.useState("");
+  const [confirmDelW, setConfirmDelW] = React.useState(null);
+
+  const dirty = name !== (p.name || "") || birth !== (p.birth || "") || sex !== (p.sex || "") || height !== (p.height || "") || goal !== (p.goal || "");
+
+  const saveBasics = async () => {
+    await onSave({ name: name.trim(), birth, sex, height: height.replace(",", "."), goal });
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 2000);
+  };
+
+  const age = (() => {
+    if (!birth) return null;
+    const b = new Date(birth); if (isNaN(b)) return null;
+    const now = new Date();
+    let a = now.getFullYear() - b.getFullYear();
+    const m = now.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) a--;
+    return a >= 0 && a < 130 ? a : null;
+  })();
+
+  const weights = (p.weights || []);
+  const lastW = weights.length ? weights[weights.length - 1] : null;
+  const firstW = weights.length ? weights[0] : null;
+  const deltaW = (lastW && firstW && weights.length > 1) ? +(lastW.kg - firstW.kg).toFixed(1) : null;
+
+  const goals = [
+    { id: "massa", label: "Ganhar massa" },
+    { id: "perder", label: "Perder gordura" },
+    { id: "manter", label: "Manter" },
+  ];
+
+  const provider = authUser && authUser.providerData && authUser.providerData[0] ? authUser.providerData[0].providerId : "";
+  const methodLabel = provider === "google.com" ? "Google" : (provider === "password" ? "Email e senha" : (provider || "—"));
+
+  const addW = async () => {
+    const kg = parseFloat(String(newWeight).replace(",", "."));
+    if (!kg || kg <= 0) return;
+    await onAddWeight(kg);
+    setNewWeight("");
+  };
+
+  return (
+    <div style={{ padding: "22px 18px 30px" }}>
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>Perfil</div>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 700, textTransform: "uppercase", marginBottom: 18, lineHeight: 1.05 }}>{name ? name : "Seu perfil"}</div>
+
+      {/* CONTA */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>Conta</div>
+      <div style={{ ...card, padding: 16, marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
+          <span style={{ width: 46, height: 46, borderRadius: "50%", background: "#1B2536", color: "#9a9aa2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.User width={22} height={22} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 14.5, color: "#f0f0f2", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{authUser ? authUser.email : "—"}</div>
+            <div style={{ fontSize: 12.5, color: "#7a7a82", marginTop: 2 }}>Entra com {methodLabel}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* DADOS CORPORAIS */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>Dados corporais</div>
+      <div style={{ ...card, padding: 16, marginBottom: 14 }}>
+        <label style={labelStyle}>Nome</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Como quer ser chamado" style={{ ...textInput, marginBottom: 14 }} />
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Nascimento</label>
+            <input type="date" value={birth} onChange={(e) => setBirth(e.target.value)} style={{ ...textInput }} />
+            {age != null && <div style={{ fontSize: 11.5, color: "#7a7a82", marginTop: 4 }}>{age} anos</div>}
+          </div>
+          <div style={{ width: 110 }}>
+            <label style={labelStyle}>Altura (cm)</label>
+            <input inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value.replace(/[^\d]/g, ""))} placeholder="180" style={{ ...textInput, textAlign: "center" }} />
+          </div>
+        </div>
+
+        <label style={labelStyle}>Sexo</label>
+        <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+          {[{ id: "m", l: "Masculino" }, { id: "f", l: "Feminino" }, { id: "o", l: "Outro" }].map((o) => (
+            <button key={o.id} onClick={() => setSex(o.id)} style={{ flex: 1, padding: "10px 4px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (sex === o.id ? "#EF4444" : "#2E3A4D"), background: sex === o.id ? "#EF4444" : "transparent", color: sex === o.id ? onColor("#EF4444") : "#9a9aa2" }}>{o.l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* OBJETIVO */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "8px 0 10px" }}>Objetivo</div>
+      <div style={{ ...card, padding: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {goals.map((g) => (
+            <button key={g.id} onClick={() => setGoal(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, cursor: "pointer", border: "1.5px solid " + (goal === g.id ? "#EF4444" : "#2E3A4D"), background: goal === g.id ? "#EF444415" : "transparent", textAlign: "left" }}>
+              <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, border: "2px solid " + (goal === g.id ? "#EF4444" : "#3a3a42"), background: goal === g.id ? "#EF4444" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{goal === g.id ? <Icon.Check width={11} height={11} /> : null}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: goal === g.id ? "#f0f0f2" : "#b0b0b8" }}>{g.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button onClick={saveBasics} disabled={!dirty} style={{ ...primaryBtn("#EF4444"), width: "100%", justifyContent: "center", opacity: dirty ? 1 : 0.5, marginBottom: 8 }}>
+        <Icon.Check /> {savedMsg ? "Salvo!" : "Salvar dados"}
+      </button>
+
+      {/* HISTÓRICO DE PESO */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "20px 0 10px" }}>Peso</div>
+      <div style={{ ...card, padding: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: weights.length ? 14 : 0 }}>
+          <div>
+            <div style={{ fontSize: 11.5, color: "#7a7a82", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Atual</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 34, fontWeight: 700, lineHeight: 1, marginTop: 2 }}>{lastW ? lastW.kg : "—"}<span style={{ fontSize: 16, color: "#7a7a82" }}>{lastW ? " kg" : ""}</span></div>
+          </div>
+          {deltaW != null && (
+            <div style={{ paddingBottom: 4 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: deltaW > 0 ? "#10B981" : (deltaW < 0 ? "#38BDF8" : "#7a7a82") }}>{deltaW > 0 ? "+" : ""}{deltaW} kg</span>
+              <span style={{ fontSize: 11.5, color: "#6a6a72" }}> desde o início</span>
+            </div>
+          )}
+        </div>
+
+        {weights.length >= 2 && <MiniChart arr={weights.map((w) => ({ date: w.date, weight: w.kg }))} accent="#EF4444" />}
+
+        <div style={{ display: "flex", gap: 8, marginTop: weights.length ? 14 : 0 }}>
+          <input inputMode="decimal" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} placeholder="Registrar peso (kg)" style={{ ...textInput, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter") addW(); }} />
+          <button onClick={addW} style={{ ...primaryBtn("#EF4444"), padding: "0 18px" }}><Icon.Plus /></button>
+        </div>
+
+        {weights.length > 0 && (
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 2 }}>
+            {[...weights].reverse().slice(0, 8).map((w, i) => {
+              const isConfirm = confirmDelW === w.date;
+              return (
+                <div key={w.date} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderTop: i ? "1px solid #1c1c22" : "none" }}>
+                  <span style={{ fontSize: 13, color: "#9a9aa2" }}>{new Date(w.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e4" }}>{w.kg} kg</span>
+                    {isConfirm ? (
+                      <React.Fragment>
+                        <button onClick={() => { onDeleteWeight(w.date); setConfirmDelW(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 6, padding: "3px 8px", color: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>Excluir</button>
+                        <button onClick={() => setConfirmDelW(null)} style={{ background: "none", border: "1px solid #2E3A4D", borderRadius: 6, padding: "3px 8px", color: "#9a9aa2", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>Não</button>
+                      </React.Fragment>
+                    ) : (
+                      <button onClick={() => setConfirmDelW(w.date)} style={{ ...iconBtn, padding: 2, color: "#4a4a52" }} aria-label="Excluir registro de peso"><Icon.Trash width={14} height={14} /></button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <p style={{ fontSize: 12, color: "#5a5a62", lineHeight: 1.5, marginTop: 14, textAlign: "center" }}>
+        Esses dados são um registro pessoal pra acompanhar sua evolução — não são avaliação médica. Para orientação sobre peso, dieta ou treino, procure um profissional de saúde.
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN APP
 // ============================================================
 function App() {
@@ -697,6 +876,7 @@ function App() {
   const [logs, setLogs] = useState({});
   const [progress, setProgress] = useState({});
   const [history, setHistory] = useState([]);
+  const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", goal: "", weights: [] });
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [editingWorkout, setEditingWorkout] = useState(null);
   const [editingExercise, setEditingExercise] = useState(null);
@@ -776,6 +956,7 @@ function App() {
       const lg = await storeGet(KEY_LOGS, {});
       const pr = await storeGet(KEY_PROGRESS, {});
       const hs = await storeGet(KEY_HISTORY, []);
+      const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", goal: "", weights: [] });
       let lb = await storeGet(KEY_LIBRARY, null);
       let wk = await storeGet(KEY_WORKOUTS, null);
       let sc = await storeGet(KEY_SCHEDULE, null);
@@ -811,7 +992,7 @@ function App() {
       });
       if (histMigrated) await storeSet(KEY_HISTORY, hs);
       if (cancelled) return;
-      setLogs(lg); setProgress(pr); setHistory(hs);
+      setLogs(lg); setProgress(pr); setHistory(hs); setProfile(prof);
       setLib(lb); setWorkouts(wk); setSchedule(sc);
       setLoaded(true);
     })();
@@ -966,6 +1147,27 @@ function App() {
     await storeSet(KEY_HISTORY, nextH);
   };
 
+  const saveProfile = async (patch) => {
+    const next = { ...profile, ...patch };
+    setProfile(next);
+    await storeSet(KEY_PROFILE, next);
+  };
+
+  const addWeight = async (kg, dateIso) => {
+    const w = { date: dateIso || new Date().toISOString(), kg };
+    const weights = [...(profile.weights || []), w].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const next = { ...profile, weights };
+    setProfile(next);
+    await storeSet(KEY_PROFILE, next);
+  };
+
+  const deleteWeight = async (dateIso) => {
+    const weights = (profile.weights || []).filter((w) => w.date !== dateIso);
+    const next = { ...profile, weights };
+    setProfile(next);
+    await storeSet(KEY_PROFILE, next);
+  };
+
   const logSet = async (exId, entry) => {
     const next = { ...logs };
     const arr = next[exId] ? [...next[exId]] : [];
@@ -1071,7 +1273,15 @@ function App() {
 
       <main style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         {!module ? (
-          <ModuleChooser onChoose={(m) => { setModule(m); if (m === "treino") setTab("today"); else setNutriTab("nhoje"); }} />
+          <ModuleChooser onChoose={(m) => { setModule(m); if (m === "treino") setTab("today"); else if (m === "nutricao") setNutriTab("nhoje"); }} />
+        ) : module === "perfil" ? (
+          <ProfileView
+            profile={profile}
+            authUser={authUser}
+            onSave={saveProfile}
+            onAddWeight={addWeight}
+            onDeleteWeight={deleteWeight}
+          />
         ) : module === "nutricao" ? (
           <NutritionView tab={nutriTab} />
         ) : activeWorkout && workouts[activeWorkout] ? (
