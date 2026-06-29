@@ -328,6 +328,8 @@ const Icon = {
   Download: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>),
   Upload: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>),
   Logout: (p) => (<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>),
+  Grid: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>),
+  Flame: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17c1.5 0 2.5-1 2.5-2.5 0-1-.5-2-1.5-3 0 0 .5 2-1 2.5 0-1.5-1-3-2-4-.5 2-2 3-2 5a4 4 0 0 0 8 0c0-2.5-2-4.5-2.5-6.5-1 1-1.5 2.5-2.5 3.5" /><path d="M12 2c1 3 4 5 4 9a4 4 0 0 1-8 0c0-1 .3-2 .7-2.8" /></svg>),
 };
 
 // ============================================================
@@ -630,10 +632,65 @@ function LoginScreen() {
 }
 
 // ============================================================
+// MODULE CHOOSER (tela de escolha de módulo)
+// ============================================================
+function ModuleChooser({ onChoose }) {
+  const cards = [
+    { id: "treino", name: "Treino", desc: "Força e hipertrofia. Treinos, cargas e progresso.", color: "#EF4444", icon: <Icon.Dumbbell width={30} height={30} /> },
+    { id: "nutricao", name: "Nutrição", desc: "Alimentação, calorias e macros.", color: "#10B981", icon: <Icon.Flame width={30} height={30} /> },
+  ];
+  return (
+    <div style={{ padding: "30px 18px 30px" }}>
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>Escolha um módulo</div>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 30, fontWeight: 700, textTransform: "uppercase", marginBottom: 22, lineHeight: 1.05 }}>O que vamos fazer hoje?</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {cards.map((c) => (
+          <button key={c.id} onClick={() => onChoose(c.id)} style={{ ...card, padding: 22, display: "flex", alignItems: "center", gap: 18, cursor: "pointer", textAlign: "left", width: "100%", position: "relative", overflow: "hidden" }}>
+            <span style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: c.color }} />
+            <span style={{ width: 60, height: 60, borderRadius: 16, background: c.color + "22", color: c.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{c.icon}</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, fontWeight: 700, textTransform: "uppercase", color: "#f0f0f2", lineHeight: 1 }}>{c.name}</span>
+              <span style={{ display: "block", fontSize: 13, color: "#8a8a92", marginTop: 6, lineHeight: 1.4 }}>{c.desc}</span>
+            </span>
+            <span style={{ color: c.color, display: "flex", flexShrink: 0 }}><Icon.Arrow /></span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// NUTRITION VIEW (esqueleto navegável — sem conteúdo ainda)
+// ============================================================
+function NutritionView({ tab }) {
+  const screens = {
+    nhoje: { title: "Hoje", desc: "Aqui vai aparecer o resumo do dia: calorias, macros e refeições registradas." },
+    nsemana: { title: "Semana", desc: "Aqui vai aparecer a visão semanal: adesão à dieta e médias por dia." },
+    ncardapio: { title: "Cardápio", desc: "Aqui você vai montar e gerenciar seus cardápios e refeições planejadas." },
+    nalimentos: { title: "Alimentos", desc: "Aqui vai ficar sua base de alimentos, com calorias e informações nutricionais." },
+  };
+  const s = screens[tab] || screens.nhoje;
+  return (
+    <div style={{ padding: "22px 18px 30px" }}>
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>Nutrição</div>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 700, textTransform: "uppercase", marginBottom: 18, lineHeight: 1.05 }}>{s.title}</div>
+      <div style={{ ...card, padding: 28, textAlign: "center" }}>
+        <span style={{ color: "#10B981", display: "inline-flex", marginBottom: 12 }}><Icon.Flame width={40} height={40} /></span>
+        <div style={{ fontSize: 14, color: "#8a8a92", lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>{s.desc}</div>
+        <div style={{ marginTop: 16, fontSize: 12, color: "#5a5a62", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Em construção</div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN APP
 // ============================================================
 function App() {
-  const [tab, setTab] = useState("today");
+  const [module, setModule] = useState(null); // null = tela de escolha; "treino" | "nutricao"
+  const [tab, setTab] = useState("today");      // aba do módulo Treino
+  const [nutriTab, setNutriTab] = useState("nhoje"); // aba do módulo Nutrição
   const [lib, setLib] = useState({});
   const [workouts, setWorkouts] = useState({});
   const [schedule, setSchedule] = useState(DEFAULT_SCHEDULE);
@@ -663,11 +720,16 @@ function App() {
     if (pendingFinish) { setPendingFinish(null); return true; }
     if (showSchedule) { setShowSchedule(false); return true; }
     if (activeWorkout) { setActiveWorkout(null); return true; }
-    if (tab !== "today") { setTab("today"); return true; }
+    if (module === "treino" && tab !== "today") { setTab("today"); return true; }
+    if (module === "nutricao" && nutriTab !== "nhoje") { setNutriTab("nhoje"); return true; }
+    if (module) { setModule(null); return true; } // sai do módulo de volta pra escolha
     return false;
-  }, [editingExercise, editingWorkout, pendingFinish, showSchedule, activeWorkout, tab]);
+  }, [editingExercise, editingWorkout, pendingFinish, showSchedule, activeWorkout, module, tab, nutriTab]);
 
-  const anyLayerOpen = !!(editingExercise || editingWorkout || pendingFinish || showSchedule || activeWorkout) || tab !== "today";
+  const anyLayerOpen = !!(editingExercise || editingWorkout || pendingFinish || showSchedule || activeWorkout)
+    || !!module
+    || (module === "treino" && tab !== "today")
+    || (module === "nutricao" && nutriTab !== "nhoje");
 
   // mantém um "amortecedor" no histórico sempre que há camada aberta
   useEffect(() => {
@@ -999,14 +1061,20 @@ function App() {
           <ForgeMark size={26} />
           <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase" }}><span style={{ color: "#EF4444" }}>F</span>orge</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 11, color: "#6a6a72", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>Hipertrofia</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {module && (
+            <button onClick={() => setModule(null)} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Voltar aos módulos" title="Módulos"><Icon.Grid /></button>
+          )}
           <button onClick={() => { if (window.fbAuth) window.fbAuth.signOut(); }} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Sair da conta" title="Sair"><Icon.Logout /></button>
         </div>
       </header>
 
       <main style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-        {activeWorkout && workouts[activeWorkout] ? (
+        {!module ? (
+          <ModuleChooser onChoose={(m) => { setModule(m); if (m === "treino") setTab("today"); else setNutriTab("nhoje"); }} />
+        ) : module === "nutricao" ? (
+          <NutritionView tab={nutriTab} />
+        ) : activeWorkout && workouts[activeWorkout] ? (
           <SessionDetail
             sessionKey={activeWorkout}
             workout={workouts[activeWorkout]}
@@ -1053,7 +1121,7 @@ function App() {
         )}
       </main>
 
-      {!activeWorkout && (
+      {module === "treino" && !activeWorkout && (
         <nav style={navBar}>
           {[
             { id: "today", label: "Hoje", icon: <Icon.Arrow /> },
@@ -1062,6 +1130,22 @@ function App() {
             { id: "progress", label: "Progresso", icon: <Icon.Chart /> },
           ].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} style={navBtn(tab === t.id)}>
+              <span style={{ display: "flex" }}>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {module === "nutricao" && (
+        <nav style={navBar}>
+          {[
+            { id: "nhoje", label: "Hoje", icon: <Icon.Arrow /> },
+            { id: "nsemana", label: "Semana", icon: <Icon.Calendar /> },
+            { id: "ncardapio", label: "Cardápio", icon: <Icon.List /> },
+            { id: "nalimentos", label: "Alimentos", icon: <Icon.Book /> },
+          ].map((t) => (
+            <button key={t.id} onClick={() => setNutriTab(t.id)} style={navBtn(nutriTab === t.id)}>
               <span style={{ display: "flex" }}>{t.icon}</span>
               <span>{t.label}</span>
             </button>
