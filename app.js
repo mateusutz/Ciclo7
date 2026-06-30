@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v27";
+const APP_VERSION = "v28";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -182,6 +182,36 @@ const mealTotals = (meal, foods) => {
   });
   return { kcal: Math.round(kcal), p: Math.round(p), c: Math.round(c), f: Math.round(f) };
 };
+
+// ============================================================
+// PLANO DA SEMANA — utilitários
+// ============================================================
+// um dia vazio = cada momento com lista vazia de refeições
+const emptyDay = () => ({ cafe: [], almoco: [], lanche: [], janta: [] });
+const emptyPlan = () => { const p = {}; for (let i = 0; i < 7; i++) p[i] = emptyDay(); return p; };
+
+// soma calorias e macros de um dia inteiro (todos os momentos)
+const dayTotals = (day, foods) => {
+  let kcal = 0, p = 0, c = 0, f = 0;
+  if (day) {
+    MEAL_MOMENTS.forEach((m) => {
+      (day[m.id] || []).forEach((meal) => {
+        const t = mealTotals(meal, foods);
+        kcal += t.kcal; p += t.p; c += t.c; f += t.f;
+      });
+    });
+  }
+  return { kcal, p, c, f };
+};
+
+// cria uma cópia INDEPENDENTE de uma refeição-modelo para uso num dia
+// (a regra central: editar a cópia não afeta o modelo nem outros dias)
+const mealCopyFromModel = (model) => ({
+  id: uid("dm_"),
+  name: model.name,
+  fromMealId: model.id, // rótulo de origem; os dados abaixo são independentes
+  items: (model.items || []).map((it) => ({ foodId: it.foodId, g: it.g })),
+});
 
 // Refeições-modelo de exemplo (para teste). Referenciam ids do FOOD_SEED.
 const MEAL_SEED = [
@@ -451,7 +481,8 @@ const KEY_HISTORY = "history:v1";
 const KEY_PROFILE = "profile:v1";
 const KEY_FOODS = "foods:v1";
 const KEY_MEALS = "meals:v1";
-const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY, KEY_PROFILE, KEY_FOODS, KEY_MEALS];
+const KEY_PLAN = "plan:v1";
+const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY, KEY_PROFILE, KEY_FOODS, KEY_MEALS, KEY_PLAN];
 
 // uid do usuário logado; setado pelo App ao autenticar. Sem uid, cai no localStorage.
 let CURRENT_UID = null;
@@ -494,7 +525,7 @@ async function storeSet(key, value) {
 }
 
 const ACERVO_KEYS = [KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_FOODS, KEY_MEALS];
-const HISTORICO_KEYS = [KEY_HISTORY, KEY_LOGS, KEY_PROFILE];
+const HISTORICO_KEYS = [KEY_HISTORY, KEY_LOGS, KEY_PROFILE, KEY_PLAN];
 
 function downloadJson(payload, filename) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1283,12 +1314,242 @@ function CardapioView({ meals, foods, onSave, onDelete }) {
   );
 }
 
-function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, onSaveMeal, onDeleteMeal }) {
+// ============================================================
+// SEMANA — montagem do plano semanal
+// ============================================================
+// barra de comparação com a meta (consumo planejado vs meta calórica)
+function MetaBar({ totals, target }) {
+  if (!target || !target.ok) return null;
+  const pct = Math.min(100, Math.round((totals.kcal / target.kcal) * 100));
+  const over = totals.kcal > target.kcal;
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+        <span style={{ fontSize: 12.5, color: "#8a8a92", fontWeight: 600 }}>{totals.kcal} / {target.kcal} kcal</span>
+        <span style={{ fontSize: 12, fontWeight: 800, color: over ? "#e0a23b" : NG }}>{pct}%</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 3, background: "#1B2536", overflow: "hidden" }}>
+        <div style={{ width: pct + "%", height: "100%", background: over ? "#e0a23b" : NG }} />
+      </div>
+    </div>
+  );
+}
+
+// editor de um dia: momentos, refeições copiadas, edição de gramas
+function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal, onSetGrams, onCopyDay, onClear, onClose }) {
+  const [picking, setPicking] = React.useState(null); // momento aberto pra escolher modelo
+  const [expanded, setExpanded] = React.useState({}); // copyId -> bool (mostrar itens)
+  const [copyTo, setCopyTo] = React.useState(false); // tela de replicar
+  const [copySel, setCopySel] = React.useState([]); // dias destino selecionados
+  const totals = dayTotals(day, foods);
+
+  const toggleExp = (id) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
+
+  // modelos disponíveis pra um momento (refeições marcadas pra ele)
+  const modelsFor = (moment) => Object.values(meals || {}).filter((m) => (m.moments || []).includes(moment)).sort((a, b) => a.name.localeCompare(b.name));
+
+  const doCopy = async () => {
+    if (!copySel.length) { setCopyTo(false); return; }
+    await onCopyDay(dayIdx, copySel);
+    setCopyTo(false); setCopySel([]);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0B0F19", zIndex: 50, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #1c1c22" }}>
+        <button onClick={onClose} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Fechar"><Icon.X /></button>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase", flex: 1 }}>{DAYS[dayIdx]}</span>
+        <button onClick={() => setCopyTo(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid #2A3344", borderRadius: 8, padding: "7px 11px", color: "#b0b0b8", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}><Icon.Swap /> Replicar</button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "18px" }}>
+        {/* resumo do dia + meta */}
+        <div style={{ ...card, padding: 16, marginBottom: 18, background: "#0e1722", border: "1px solid #1c2e26" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 700, lineHeight: 1, color: NG }}>{totals.kcal}</span>
+            <span style={{ fontSize: 13, color: "#8a8a92", fontWeight: 600 }}>kcal no dia</span>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontSize: 12, color: "#8a8a92" }}>P{totals.p} · C{totals.c} · G{totals.f}</span>
+          </div>
+          <MetaBar totals={totals} target={target} />
+        </div>
+
+        {/* momentos */}
+        {MEAL_MOMENTS.map((m) => {
+          const list = (day && day[m.id]) || [];
+          return (
+            <div key={m.id} style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <span style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#8a8a92", fontWeight: 700 }}>{m.name}</span>
+                <button onClick={() => setPicking(m.id)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: NG, fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}><Icon.Plus /> Adicionar</button>
+              </div>
+
+              {list.length === 0 && <div style={{ fontSize: 12.5, color: "#5a5a62", padding: "6px 0 2px" }}>Nenhuma refeição.</div>}
+
+              {list.map((meal) => {
+                const t = mealTotals(meal, foods);
+                const isExp = expanded[meal.id];
+                return (
+                  <div key={meal.id} style={{ ...card, padding: 0, marginBottom: 8, overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 14px" }}>
+                      <button onClick={() => toggleExp(meal.id)} style={{ flex: 1, minWidth: 0, background: "none", border: "none", textAlign: "left", cursor: "pointer", padding: 0 }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, color: "#f0f0f2" }}>{meal.name}</div>
+                        <div style={{ fontSize: 12, color: "#8a8a92", marginTop: 2 }}><span style={{ color: NG, fontWeight: 700 }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
+                      </button>
+                      <button onClick={() => toggleExp(meal.id)} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Ajustar">{isExp ? <Icon.Up /> : <Icon.Down />}</button>
+                      <button onClick={() => onRemoveMeal(dayIdx, m.id, meal.id)} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Remover"><Icon.Trash width={15} height={15} /></button>
+                    </div>
+                    {isExp && (
+                      <div style={{ padding: "0 14px 12px", borderTop: "1px solid #1c1c22" }}>
+                        <div style={{ fontSize: 11, color: "#5a5a62", margin: "10px 0 8px" }}>Ajuste as quantidades só pra este dia — não muda o modelo no Cardápio.</div>
+                        {meal.items.map((it, i) => {
+                          const food = foods[it.foodId];
+                          if (!food) return null;
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                              <span style={{ flex: 1, fontSize: 13, color: "#c0c0c8", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{food.name}</span>
+                              <input inputMode="decimal" value={it.g} onChange={(e) => onSetGrams(dayIdx, m.id, meal.id, i, parseNum(e.target.value) || 0)} style={{ ...textInput, width: 60, textAlign: "center", padding: "7px 6px" }} />
+                              <span style={{ fontSize: 12, color: "#7a7a82" }}>g</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+
+        <button onClick={() => onClear(dayIdx)} style={{ width: "100%", marginTop: 6, padding: "11px", background: "transparent", color: "#7a7a82", border: "1px solid #2A3344", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Limpar o dia</button>
+      </div>
+
+      {/* picker de refeição-modelo */}
+      {picking && (
+        <div style={{ position: "fixed", inset: 0, background: "#0B0F19", zIndex: 60, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #1c1c22" }}>
+            <button onClick={() => setPicking(null)} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Fechar"><Icon.X /></button>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{momentName(picking)}</span>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+            <div style={{ fontSize: 12.5, color: "#8a8a92", marginBottom: 14 }}>Escolha uma refeição-modelo do Cardápio pra adicionar.</div>
+            {modelsFor(picking).map((model) => {
+              const t = mealTotals(model, foods);
+              return (
+                <button key={model.id} onClick={() => { onAddMeal(dayIdx, picking, model); setPicking(null); }} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", border: "1px solid #1c2e26" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f2" }}>{model.name}</div>
+                    <div style={{ fontSize: 11.5, color: "#7a7a82", marginTop: 2 }}><span style={{ color: NG }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
+                  </div>
+                  <Icon.Plus />
+                </button>
+              );
+            })}
+            {modelsFor(picking).length === 0 && (
+              <div style={{ ...card, padding: 22, textAlign: "center", color: "#8a8a92", fontSize: 13, lineHeight: 1.5 }}>
+                Nenhuma refeição-modelo pra {momentName(picking).toLowerCase()} ainda. Crie uma na aba Cardápio e marque o momento "{momentName(picking)}".
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* replicar dia */}
+      {copyTo && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: "#10151f", borderRadius: "16px 16px 0 0", width: "100%", padding: 20, borderTop: "1px solid #2A3344" }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Replicar {DAYS[dayIdx]}</div>
+            <div style={{ fontSize: 12.5, color: "#8a8a92", marginBottom: 16 }}>Copia este dia (de forma independente) para os dias marcados.</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+              {DAYS.map((d, i) => {
+                if (i === dayIdx) return null;
+                const on = copySel.includes(i);
+                return (
+                  <button key={i} onClick={() => setCopySel((s) => on ? s.filter((x) => x !== i) : [...s, i])} style={{ padding: "9px 13px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (on ? NG : "#2E3A4D"), background: on ? NG : "transparent", color: on ? "#062b20" : "#9a9aa2" }}>{d.slice(0, 3)}</button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setCopyTo(false); setCopySel([]); }} style={{ flex: 1, padding: "12px", background: "transparent", color: "#9a9aa2", border: "1px solid #2A3344", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+              <button onClick={doCopy} style={{ ...primaryBtn(NG), flex: 1, justifyContent: "center", opacity: copySel.length ? 1 : 0.5 }}>Replicar{copySel.length ? " (" + copySel.length + ")" : ""}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// visão geral da semana: 7 dias com total e comparação com a meta
+function SemanaView({ plan, foods, meals, profile, onAddMeal, onRemoveMeal, onSetGrams, onCopyDay, onClear }) {
+  const [openDay, setOpenDay] = React.useState(null);
+  const target = computeTargets(profile);
+  const hasTarget = target && target.ok;
+
+  return (
+    <div style={{ padding: "22px 18px 30px" }}>
+      <ModuleHeader eyebrow="Nutrição" title="Semana" />
+
+      {!hasTarget && (
+        <div style={{ ...card, padding: 14, marginBottom: 14, fontSize: 12.5, color: "#8a8a92", lineHeight: 1.5 }}>
+          Complete seus dados no Perfil pra ver a comparação com sua meta de calorias.
+        </div>
+      )}
+
+      {DAYS.map((dname, i) => {
+        const day = plan[i] || emptyDay();
+        const totals = dayTotals(day, foods);
+        const count = MEAL_MOMENTS.reduce((s, m) => s + ((day[m.id] || []).length), 0);
+        const pct = hasTarget ? Math.min(100, Math.round((totals.kcal / target.kcal) * 100)) : 0;
+        const over = hasTarget && totals.kcal > target.kcal;
+        return (
+          <button key={i} onClick={() => setOpenDay(i)} style={{ ...card, padding: 16, marginBottom: 8, width: "100%", textAlign: "left", cursor: "pointer", display: "block" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: count ? 10 : 0 }}>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 19, fontWeight: 700, textTransform: "uppercase", flex: 1 }}>{dname}</span>
+              {count > 0
+                ? <span style={{ fontSize: 13, fontWeight: 700, color: NG }}>{totals.kcal} kcal</span>
+                : <span style={{ fontSize: 12.5, color: "#5a5a62" }}>vazio</span>}
+              <Icon.Arrow />
+            </div>
+            {count > 0 && hasTarget && (
+              <div style={{ height: 5, borderRadius: 3, background: "#1B2536", overflow: "hidden" }}>
+                <div style={{ width: pct + "%", height: "100%", background: over ? "#e0a23b" : NG }} />
+              </div>
+            )}
+            {count > 0 && <div style={{ fontSize: 11.5, color: "#7a7a82", marginTop: 7 }}>{count} refeições · P{totals.p} C{totals.c} G{totals.f}</div>}
+          </button>
+        );
+      })}
+
+      {openDay != null && (
+        <DayPlanner
+          dayIdx={openDay}
+          day={plan[openDay] || emptyDay()}
+          foods={foods}
+          meals={meals}
+          target={target}
+          onAddMeal={onAddMeal}
+          onRemoveMeal={onRemoveMeal}
+          onSetGrams={onSetGrams}
+          onCopyDay={onCopyDay}
+          onClear={onClear}
+          onClose={() => setOpenDay(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, onSaveMeal, onDeleteMeal, plan, planAddMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay }) {
   if (tab === "nalimentos") {
     return <FoodsView foods={foods} onSave={onSaveFood} onDelete={onDeleteFood} />;
   }
   if (tab === "ncardapio") {
     return <CardapioView meals={meals} foods={foods} onSave={onSaveMeal} onDelete={onDeleteMeal} />;
+  }
+  if (tab === "nsemana") {
+    return <SemanaView plan={plan} foods={foods} meals={meals} profile={profile} onAddMeal={planAddMeal} onRemoveMeal={planRemoveMeal} onSetGrams={planSetItemGrams} onCopyDay={planCopyDay} onClear={planClearDay} />;
   }
   const screens = {
     nhoje: { title: "Hoje", desc: "Aqui vai aparecer o resumo do dia: calorias, macros e refeições registradas." },
@@ -1663,6 +1924,7 @@ function App() {
   const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
   const [foods, setFoods] = useState({});
   const [meals, setMeals] = useState({});
+  const [plan, setPlan] = useState(emptyPlan());
   const accentPref = (profile && profile.prefs && profile.prefs.accent) || DEFAULT_ACCENT;
   setAccentVar(accentPref); // síncrono: garante que estilos no render usem o acento certo
   useEffect(() => {
@@ -1759,6 +2021,7 @@ function App() {
       const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
       let fd = await storeGet(KEY_FOODS, null);
       let ml = await storeGet(KEY_MEALS, null);
+      let pl = await storeGet(KEY_PLAN, null);
       let lb = await storeGet(KEY_LIBRARY, null);
       let wk = await storeGet(KEY_WORKOUTS, null);
       let sc = await storeGet(KEY_SCHEDULE, null);
@@ -1767,6 +2030,10 @@ function App() {
       if (!sc) { sc = DEFAULT_SCHEDULE; await storeSet(KEY_SCHEDULE, sc); }
       if (!fd) { fd = {}; FOOD_SEED.forEach((x) => { fd[x.id] = { ...x, seed: true }; }); await storeSet(KEY_FOODS, fd); }
       if (!ml) { ml = {}; MEAL_SEED.forEach((x) => { ml[x.id] = { ...x, seed: true }; }); await storeSet(KEY_MEALS, ml); }
+      if (!pl) { pl = emptyPlan(); await storeSet(KEY_PLAN, pl); }
+      else { // garante que todo dia/momento existe (migração defensiva)
+        for (let i = 0; i < 7; i++) { if (!pl[i]) pl[i] = emptyDay(); MEAL_MOMENTS.forEach((m) => { if (!pl[i][m.id]) pl[i][m.id] = []; }); }
+      }
       // migração: adiciona muscles a exercícios salvos antes desse recurso
       let libMigrated = false;
       Object.values(lb).forEach((ex) => {
@@ -1797,7 +2064,7 @@ function App() {
       if (histMigrated) await storeSet(KEY_HISTORY, hs);
       if (cancelled) return;
       setLogs(lg); setProgress(pr); setHistory(hs); setProfile(prof);
-      setLib(lb); setWorkouts(wk); setSchedule(sc); setFoods(fd); setMeals(ml);
+      setLib(lb); setWorkouts(wk); setSchedule(sc); setFoods(fd); setMeals(ml); setPlan(pl);
       setLoaded(true);
     })();
     return () => { cancelled = true; };
@@ -2027,6 +2294,56 @@ function App() {
     await storeSet(KEY_MEALS, next);
   };
 
+  // ---- plano da semana ----
+  const savePlan = async (next) => {
+    setPlan(next);
+    await storeSet(KEY_PLAN, next);
+  };
+  // adiciona uma refeição-modelo a um momento de um dia (como cópia independente)
+  const planAddMeal = async (dayIdx, moment, model) => {
+    const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
+    const copy = mealCopyFromModel(model);
+    next[dayIdx][moment] = [...(next[dayIdx][moment] || []), copy];
+    await savePlan(next);
+  };
+  // remove uma refeição (pelo id da cópia) de um momento/dia
+  const planRemoveMeal = async (dayIdx, moment, copyId) => {
+    const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
+    next[dayIdx][moment] = (next[dayIdx][moment] || []).filter((m) => m.id !== copyId);
+    await savePlan(next);
+  };
+  // ajusta os gramas de um item de uma refeição copiada (edição independente)
+  const planSetItemGrams = async (dayIdx, moment, copyId, itemIdx, grams) => {
+    const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
+    next[dayIdx][moment] = (next[dayIdx][moment] || []).map((m) => {
+      if (m.id !== copyId) return m;
+      const items = m.items.map((it, i) => (i === itemIdx ? { ...it, g: grams } : it));
+      return { ...m, items };
+    });
+    await savePlan(next);
+  };
+  // copia um dia inteiro para um ou mais dias (cópia profunda e independente)
+  const planCopyDay = async (fromIdx, toIdxs) => {
+    const next = { ...plan };
+    const source = plan[fromIdx] || emptyDay();
+    toIdxs.forEach((toIdx) => {
+      const dayCopy = {};
+      MEAL_MOMENTS.forEach((m) => {
+        dayCopy[m.id] = (source[m.id] || []).map((meal) => ({
+          id: uid("dm_"), name: meal.name, fromMealId: meal.fromMealId,
+          items: meal.items.map((it) => ({ foodId: it.foodId, g: it.g })),
+        }));
+      });
+      next[toIdx] = dayCopy;
+    });
+    await savePlan(next);
+  };
+  // limpa um dia inteiro
+  const planClearDay = async (dayIdx) => {
+    const next = { ...plan, [dayIdx]: emptyDay() };
+    await savePlan(next);
+  };
+
   // vincula senha (email/senha) à conta logada atual (ex.: quem só tem Google)
   const linkPassword = async (newPass) => {
     if (!window.fbAuth || !authUser) throw new Error("no-user");
@@ -2175,7 +2492,7 @@ function App() {
             appVersion={APP_VERSION}
           />
         ) : module === "nutricao" ? (
-          <NutritionView tab={nutriTab} profile={profile} foods={foods} onSaveFood={saveFood} onDeleteFood={deleteFood} meals={meals} onSaveMeal={saveMeal} onDeleteMeal={deleteMeal} />
+          <NutritionView tab={nutriTab} profile={profile} foods={foods} onSaveFood={saveFood} onDeleteFood={deleteFood} meals={meals} onSaveMeal={saveMeal} onDeleteMeal={deleteMeal} plan={plan} planAddMeal={planAddMeal} planRemoveMeal={planRemoveMeal} planSetItemGrams={planSetItemGrams} planCopyDay={planCopyDay} planClearDay={planClearDay} />
         ) : activeWorkout && getWorkout(activeWorkout) ? (
           <SessionDetail
             sessionKey={activeWorkout}
