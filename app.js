@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v22";
+const APP_VERSION = "v23";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -2156,10 +2156,11 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
                 return (
                   <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <span style={{ fontSize: 11, fontWeight: 800, width: 30, textAlign: "center", flexShrink: 0, color: doneSet ? onColor(accent) : accent, background: doneSet ? accent : "#1B2536", border: "1px solid " + (doneSet ? accent : "#2E3A4D"), borderRadius: 6, padding: "6px 0" }}>S{i + 1}</span>
-                    <input inputMode="decimal" placeholder={lastSet ? String(lastSet.weight) : "kg"} value={r.weight} onChange={(e) => setRow(i, { weight: e.target.value })} style={{ ...inputStyle, flex: 1, width: "auto" }} />
+                    <input inputMode="decimal" placeholder={lastSet ? String(lastSet.weight) : "kg"} value={r.weight} onChange={(e) => setRow(i, { weight: e.target.value })} style={{ ...inputStyle, width: 64, flexShrink: 0 }} />
                     <span style={{ color: "#5a5a62" }}>×</span>
-                    <input inputMode="numeric" placeholder={lastSet ? String(lastSet.reps) : (ex.reps || "reps")} value={r.reps} onChange={(e) => setRow(i, { reps: e.target.value })} style={{ ...inputStyle, width: 56 }} />
-                    <button onClick={() => saveSet(i)} style={{ ...primaryBtn(accent), padding: "9px 0", width: 44, justifyContent: "center", opacity: r.weight ? 1 : 0.5 }} aria-label={"Salvar série " + (i + 1)}>
+                    <input inputMode="numeric" placeholder={lastSet ? String(lastSet.reps) : (ex.reps || "reps")} value={r.reps} onChange={(e) => setRow(i, { reps: e.target.value })} style={{ ...inputStyle, width: 56, flexShrink: 0 }} />
+                    <span style={{ flex: 1 }} />
+                    <button onClick={() => saveSet(i)} style={{ ...primaryBtn(accent), padding: "9px 0", width: 44, flexShrink: 0, justifyContent: "center", opacity: r.weight ? 1 : 0.5 }} aria-label={"Salvar série " + (i + 1)}>
                       {doneSet ? <Icon.Check width={15} height={15} /> : <Icon.Plus />}
                     </button>
                   </div>
