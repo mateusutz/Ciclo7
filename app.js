@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v26";
+const APP_VERSION = "v27";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -154,6 +154,51 @@ const FOOD_SEED = [
   // Outros
   { id: "f_whey", name: "Whey protein (pó)", cat: "outros", kcal: 400, p: 80.0, c: 8.0, f: 6.0, portions: [{ label: "scoop", g: 30 }] },
   { id: "f_mel", name: "Mel", cat: "outros", kcal: 309, p: 0, c: 84.0, f: 0, portions: [{ label: "colher de sopa", g: 20 }] },
+];
+
+// ============================================================
+// REFEIÇÕES-MODELO (Cardápio)
+// ============================================================
+// Momentos do dia em que uma refeição pode ser usada
+const MEAL_MOMENTS = [
+  { id: "cafe", name: "Café da manhã" },
+  { id: "almoco", name: "Almoço" },
+  { id: "lanche", name: "Lanche" },
+  { id: "janta", name: "Jantar" },
+];
+const momentName = (id) => { const m = MEAL_MOMENTS.find((x) => x.id === id); return m ? m.name : id; };
+
+// soma calorias e macros de uma refeição (itens: [{foodId, g}]) usando o banco de alimentos
+const mealTotals = (meal, foods) => {
+  let kcal = 0, p = 0, c = 0, f = 0;
+  (meal && meal.items || []).forEach((it) => {
+    const food = foods && foods[it.foodId];
+    if (!food) return;
+    const factor = (it.g || 0) / 100;
+    kcal += (food.kcal || 0) * factor;
+    p += (food.p || 0) * factor;
+    c += (food.c || 0) * factor;
+    f += (food.f || 0) * factor;
+  });
+  return { kcal: Math.round(kcal), p: Math.round(p), c: Math.round(c), f: Math.round(f) };
+};
+
+// Refeições-modelo de exemplo (para teste). Referenciam ids do FOOD_SEED.
+const MEAL_SEED = [
+  { id: "m_cafe_padrao", name: "Café reforçado", moments: ["cafe"], items: [
+    { foodId: "f_ovo", g: 100 }, { foodId: "f_pao_forma_integral", g: 50 },
+    { foodId: "f_banana", g: 65 }, { foodId: "f_aveia", g: 30 },
+  ] },
+  { id: "m_almoco_padrao", name: "Almoço clássico", moments: ["almoco"], items: [
+    { foodId: "f_arroz_branco", g: 120 }, { foodId: "f_feijao_carioca", g: 100 },
+    { foodId: "f_frango_peito", g: 150 }, { foodId: "f_brocolis", g: 80 }, { foodId: "f_azeite", g: 8 },
+  ] },
+  { id: "m_lanche_padrao", name: "Lanche pré-treino", moments: ["lanche"], items: [
+    { foodId: "f_whey", g: 30 }, { foodId: "f_banana", g: 65 }, { foodId: "f_pasta_amendoim", g: 20 },
+  ] },
+  { id: "m_janta_padrao", name: "Jantar leve", moments: ["janta"], items: [
+    { foodId: "f_batata_doce", g: 150 }, { foodId: "f_tilapia", g: 150 }, { foodId: "f_alface", g: 40 }, { foodId: "f_tomate", g: 60 },
+  ] },
 ];
 
 
@@ -405,7 +450,8 @@ const KEY_SCHEDULE = "schedule:v1";
 const KEY_HISTORY = "history:v1";
 const KEY_PROFILE = "profile:v1";
 const KEY_FOODS = "foods:v1";
-const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY, KEY_PROFILE, KEY_FOODS];
+const KEY_MEALS = "meals:v1";
+const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY, KEY_PROFILE, KEY_FOODS, KEY_MEALS];
 
 // uid do usuário logado; setado pelo App ao autenticar. Sem uid, cai no localStorage.
 let CURRENT_UID = null;
@@ -447,7 +493,7 @@ async function storeSet(key, value) {
   }
 }
 
-const ACERVO_KEYS = [KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_FOODS];
+const ACERVO_KEYS = [KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_FOODS, KEY_MEALS];
 const HISTORICO_KEYS = [KEY_HISTORY, KEY_LOGS, KEY_PROFILE];
 
 function downloadJson(payload, filename) {
@@ -1043,9 +1089,206 @@ function FoodsView({ foods, onSave, onDelete }) {
   );
 }
 
-function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood }) {
+// ============================================================
+// CARDÁPIO — refeições-modelo (criar/editar/listar)
+// ============================================================
+const NG = "#10B981"; // acento da Nutrição (verde)
+
+// formulário de criar/editar refeição-modelo
+function MealForm({ initial, foods, onSave, onDelete, onClose }) {
+  const isNew = !initial;
+  const [name, setName] = React.useState(initial ? initial.name : "");
+  const [moments, setMoments] = React.useState(initial ? [...(initial.moments || [])] : []);
+  const [items, setItems] = React.useState(initial ? initial.items.map((x) => ({ ...x })) : []);
+  const [picking, setPicking] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [error, setError] = React.useState("");
+
+  const toggleMoment = (id) => setMoments((m) => m.includes(id) ? m.filter((x) => x !== id) : [...m, id]);
+  const addItem = (foodId) => { setItems((it) => [...it, { foodId, g: 100 }]); setPicking(false); setQuery(""); };
+  const setG = (i, g) => setItems((it) => it.map((x, j) => (j === i ? { ...x, g } : x)));
+  const rmItem = (i) => setItems((it) => it.filter((_, j) => j !== i));
+
+  const draft = { name, moments, items: items.map((x) => ({ foodId: x.foodId, g: parseNum(x.g) || 0 })) };
+  const totals = mealTotals(draft, foods);
+
+  const save = () => {
+    if (!name.trim()) { setError("Dê um nome à refeição."); return; }
+    if (!items.length) { setError("Adicione pelo menos um alimento."); return; }
+    if (!moments.length) { setError("Marque ao menos um momento do dia."); return; }
+    onSave({ ...(initial || {}), name: name.trim(), moments, items: draft.items });
+  };
+
+  const list = Object.values(foods || {});
+  const q = query.trim().toLowerCase();
+  const found = q ? list.filter((x) => x.name.toLowerCase().includes(q)) : list;
+  found.sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0B0F19", zIndex: 50, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #1c1c22" }}>
+        <button onClick={onClose} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Fechar"><Icon.X /></button>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{isNew ? "Nova refeição" : "Editar refeição"}</span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "18px" }}>
+        <label style={labelStyle}>Nome da refeição</label>
+        <input value={name} onChange={(e) => { setName(e.target.value); setError(""); }} placeholder="Ex.: Café reforçado" style={{ ...textInput, marginBottom: 16 }} />
+
+        <label style={labelStyle}>Momentos do dia</label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+          {MEAL_MOMENTS.map((m) => {
+            const on = moments.includes(m.id);
+            return (
+              <button key={m.id} onClick={() => { toggleMoment(m.id); setError(""); }} style={{ padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (on ? NG : "#2E3A4D"), background: on ? NG : "transparent", color: on ? "#062b20" : "#9a9aa2" }}>{m.name}</button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: "#7a7a82", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Alimentos</span>
+          <button onClick={() => setPicking(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: NG, border: "none", borderRadius: 8, padding: "7px 12px", color: "#062b20", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}><Icon.Plus /> Adicionar</button>
+        </div>
+
+        {items.length === 0 && <div style={{ ...card, padding: 18, textAlign: "center", color: "#7a7a82", fontSize: 13, marginBottom: 14 }}>Nenhum alimento ainda. Toque em Adicionar.</div>}
+
+        {items.map((it, i) => {
+          const food = foods[it.foodId];
+          if (!food) return null;
+          const factor = (parseNum(it.g) || 0) / 100;
+          return (
+            <div key={i} style={{ ...card, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f2", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{food.name}</div>
+                <div style={{ fontSize: 11.5, color: "#7a7a82", marginTop: 2 }}>{Math.round((food.kcal || 0) * factor)} kcal · P{Math.round((food.p || 0) * factor)} C{Math.round((food.c || 0) * factor)} G{Math.round((food.f || 0) * factor)}</div>
+              </div>
+              <input inputMode="decimal" value={it.g} onChange={(e) => setG(i, e.target.value)} style={{ ...textInput, width: 64, textAlign: "center" }} />
+              <span style={{ fontSize: 12, color: "#7a7a82" }}>g</span>
+              <button onClick={() => rmItem(i)} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Remover"><Icon.Trash width={15} height={15} /></button>
+            </div>
+          );
+        })}
+
+        {/* resumo nutricional da refeição */}
+        {items.length > 0 && (
+          <div style={{ ...card, padding: 16, marginTop: 6, background: "#0e1722", border: "1px solid #1c2e26" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 30, fontWeight: 700, lineHeight: 1, color: NG }}>{totals.kcal}</span>
+              <span style={{ fontSize: 13, color: "#8a8a92", fontWeight: 600 }}>kcal no total</span>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {[{ k: "protein", l: "Proteína", v: totals.p }, { k: "carb", l: "Carbo", v: totals.c }, { k: "fat", l: "Gordura", v: totals.f }].map((m) => (
+                <div key={m.k} style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: MACRO_COLORS[m.k], margin: "0 auto 4px" }} />
+                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{m.v}<span style={{ fontSize: 11, color: "#7a7a82" }}>g</span></div>
+                  <div style={{ fontSize: 11, color: "#8a8a92", marginTop: 1 }}>{m.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && <div style={{ color: "#e36a5a", fontSize: 12.5, fontWeight: 600, margin: "12px 0 0" }}>{error}</div>}
+
+        <button onClick={save} style={{ ...primaryBtn(NG), width: "100%", justifyContent: "center", marginTop: 16 }}>
+          <Icon.Check /> {isNew ? "Criar refeição" : "Salvar alterações"}
+        </button>
+        {!isNew && onDelete && (
+          <button onClick={() => onDelete(initial.id)} style={{ width: "100%", marginTop: 8, padding: "12px", background: "transparent", color: "#e36a5a", border: "1px solid #3a2a2a", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+            Excluir refeição
+          </button>
+        )}
+      </div>
+
+      {/* seletor de alimentos */}
+      {picking && (
+        <div style={{ position: "fixed", inset: 0, background: "#0B0F19", zIndex: 60, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #1c1c22" }}>
+            <button onClick={() => { setPicking(false); setQuery(""); }} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Fechar"><Icon.X /></button>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>Escolher alimento</span>
+          </div>
+          <div style={{ padding: "14px 18px 0" }}>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar alimento..." style={{ ...textInput, marginBottom: 12 }} autoFocus />
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "0 18px 18px" }}>
+            {found.map((food) => (
+              <button key={food.id} onClick={() => addItem(food.id)} style={{ ...card, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", border: "1px solid #1c2e26" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f2" }}>{food.name}</div>
+                  <div style={{ fontSize: 11.5, color: "#7a7a82", marginTop: 2 }}>{food.kcal} kcal/100g</div>
+                </div>
+                <Icon.Plus />
+              </button>
+            ))}
+            {found.length === 0 && <div style={{ textAlign: "center", color: "#7a7a82", fontSize: 13, padding: 20 }}>Nenhum alimento encontrado. Você pode cadastrá-lo na aba Alimentos.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// tela do Cardápio: refeições-modelo agrupadas por momento
+function CardapioView({ meals, foods, onSave, onDelete }) {
+  const [editing, setEditing] = React.useState(null); // meal | "new" | null
+  const list = Object.values(meals || {});
+  // agrupa por momento (uma refeição pode aparecer em mais de um)
+  const byMoment = {};
+  MEAL_MOMENTS.forEach((m) => { byMoment[m.id] = []; });
+  list.forEach((meal) => { (meal.moments || []).forEach((mid) => { if (byMoment[mid]) byMoment[mid].push(meal); }); });
+
+  return (
+    <div style={{ padding: "22px 18px 30px" }}>
+      <ModuleHeader eyebrow={"Nutrição · " + list.length + " refeições"} title="Cardápio" right={
+        <button onClick={() => setEditing("new")} style={{ display: "flex", alignItems: "center", gap: 6, background: NG, border: "none", borderRadius: 8, padding: "8px 14px", color: "#062b20", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+          <Icon.Plus /> Nova
+        </button>
+      } />
+
+      {list.length === 0 && (
+        <div style={{ ...card, padding: 28, textAlign: "center" }}>
+          <span style={{ color: NG, display: "inline-flex", marginBottom: 12 }}><Icon.Book width={36} height={36} /></span>
+          <div style={{ fontSize: 14, color: "#8a8a92", lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>Crie refeições-modelo pra reaproveitar na montagem da semana. Ex.: um "Café padrão" com seus alimentos de sempre.</div>
+        </div>
+      )}
+
+      {MEAL_MOMENTS.filter((m) => byMoment[m.id] && byMoment[m.id].length).map((m) => (
+        <div key={m.id} style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>{m.name}</div>
+          {byMoment[m.id].sort((a, b) => a.name.localeCompare(b.name)).map((meal) => {
+            const t = mealTotals(meal, foods);
+            return (
+              <button key={meal.id} onClick={() => setEditing(meal)} style={{ ...card, padding: 16, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", cursor: "pointer" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f2", marginBottom: 3 }}>{meal.name}</div>
+                  <div style={{ fontSize: 12, color: "#8a8a92" }}>{(meal.items || []).length} alimentos · <span style={{ color: NG, fontWeight: 700 }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
+                </div>
+                <Icon.Arrow />
+              </button>
+            );
+          })}
+        </div>
+      ))}
+
+      {editing && (
+        <MealForm
+          initial={editing === "new" ? null : editing}
+          foods={foods}
+          onSave={async (meal) => { await onSave(meal); setEditing(null); }}
+          onDelete={async (id) => { await onDelete(id); setEditing(null); }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, onSaveMeal, onDeleteMeal }) {
   if (tab === "nalimentos") {
     return <FoodsView foods={foods} onSave={onSaveFood} onDelete={onDeleteFood} />;
+  }
+  if (tab === "ncardapio") {
+    return <CardapioView meals={meals} foods={foods} onSave={onSaveMeal} onDelete={onDeleteMeal} />;
   }
   const screens = {
     nhoje: { title: "Hoje", desc: "Aqui vai aparecer o resumo do dia: calorias, macros e refeições registradas." },
@@ -1419,6 +1662,7 @@ function App() {
   const [history, setHistory] = useState([]);
   const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
   const [foods, setFoods] = useState({});
+  const [meals, setMeals] = useState({});
   const accentPref = (profile && profile.prefs && profile.prefs.accent) || DEFAULT_ACCENT;
   setAccentVar(accentPref); // síncrono: garante que estilos no render usem o acento certo
   useEffect(() => {
@@ -1514,6 +1758,7 @@ function App() {
       const hs = await storeGet(KEY_HISTORY, []);
       const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
       let fd = await storeGet(KEY_FOODS, null);
+      let ml = await storeGet(KEY_MEALS, null);
       let lb = await storeGet(KEY_LIBRARY, null);
       let wk = await storeGet(KEY_WORKOUTS, null);
       let sc = await storeGet(KEY_SCHEDULE, null);
@@ -1521,6 +1766,7 @@ function App() {
       if (!wk) { wk = DEFAULT_WORKOUTS; await storeSet(KEY_WORKOUTS, wk); }
       if (!sc) { sc = DEFAULT_SCHEDULE; await storeSet(KEY_SCHEDULE, sc); }
       if (!fd) { fd = {}; FOOD_SEED.forEach((x) => { fd[x.id] = { ...x, seed: true }; }); await storeSet(KEY_FOODS, fd); }
+      if (!ml) { ml = {}; MEAL_SEED.forEach((x) => { ml[x.id] = { ...x, seed: true }; }); await storeSet(KEY_MEALS, ml); }
       // migração: adiciona muscles a exercícios salvos antes desse recurso
       let libMigrated = false;
       Object.values(lb).forEach((ex) => {
@@ -1551,7 +1797,7 @@ function App() {
       if (histMigrated) await storeSet(KEY_HISTORY, hs);
       if (cancelled) return;
       setLogs(lg); setProgress(pr); setHistory(hs); setProfile(prof);
-      setLib(lb); setWorkouts(wk); setSchedule(sc); setFoods(fd);
+      setLib(lb); setWorkouts(wk); setSchedule(sc); setFoods(fd); setMeals(ml);
       setLoaded(true);
     })();
     return () => { cancelled = true; };
@@ -1767,6 +2013,20 @@ function App() {
     await storeSet(KEY_FOODS, next);
   };
 
+  const saveMeal = async (meal) => {
+    const id = meal.id || uid("meal_");
+    const next = { ...meals, [id]: { ...meal, id } };
+    setMeals(next);
+    await storeSet(KEY_MEALS, next);
+    return id;
+  };
+  const deleteMeal = async (id) => {
+    const next = { ...meals };
+    delete next[id];
+    setMeals(next);
+    await storeSet(KEY_MEALS, next);
+  };
+
   // vincula senha (email/senha) à conta logada atual (ex.: quem só tem Google)
   const linkPassword = async (newPass) => {
     if (!window.fbAuth || !authUser) throw new Error("no-user");
@@ -1915,7 +2175,7 @@ function App() {
             appVersion={APP_VERSION}
           />
         ) : module === "nutricao" ? (
-          <NutritionView tab={nutriTab} profile={profile} foods={foods} onSaveFood={saveFood} onDeleteFood={deleteFood} />
+          <NutritionView tab={nutriTab} profile={profile} foods={foods} onSaveFood={saveFood} onDeleteFood={deleteFood} meals={meals} onSaveMeal={saveMeal} onDeleteMeal={deleteMeal} />
         ) : activeWorkout && getWorkout(activeWorkout) ? (
           <SessionDetail
             sessionKey={activeWorkout}
