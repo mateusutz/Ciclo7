@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v25";
+const APP_VERSION = "v26";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -72,6 +72,90 @@ const activityFactor = (id) => { const a = ACTIVITY_LEVELS.find((x) => x.id === 
 
 // cores fixas dos macronutrientes (identidade da família Forge/Fuel)
 const MACRO_COLORS = { protein: "#E5645E", carb: "#E0A23B", fat: "#4C9BD6" };
+
+// categorias de alimentos (ordem de exibição)
+const FOOD_CATEGORIES = [
+  { id: "cereais", name: "Cereais e massas" },
+  { id: "leguminosas", name: "Leguminosas" },
+  { id: "carnes", name: "Carnes e ovos" },
+  { id: "laticinios", name: "Laticínios" },
+  { id: "frutas", name: "Frutas" },
+  { id: "vegetais", name: "Vegetais" },
+  { id: "gorduras", name: "Gorduras e oleaginosas" },
+  { id: "outros", name: "Outros" },
+];
+
+// Base inicial de alimentos — valores por 100 g conforme TACO (UNICAMP).
+// Campos: id, name, cat, kcal, p (proteína g), c (carbo g), f (gordura g), portions [{label, g}]
+// "seed: true" marca itens da base (para diferenciar de cadastros do usuário).
+const FOOD_SEED = [
+  // Cereais e massas
+  { id: "f_arroz_branco", name: "Arroz branco cozido", cat: "cereais", kcal: 128, p: 2.5, c: 28.1, f: 0.2, portions: [{ label: "colher de sopa", g: 25 }, { label: "escumadeira", g: 90 }] },
+  { id: "f_arroz_integral", name: "Arroz integral cozido", cat: "cereais", kcal: 124, p: 2.6, c: 25.8, f: 1.0, portions: [{ label: "colher de sopa", g: 25 }, { label: "escumadeira", g: 90 }] },
+  { id: "f_macarrao", name: "Macarrão cozido", cat: "cereais", kcal: 102, p: 3.4, c: 19.9, f: 1.3, portions: [{ label: "pegador", g: 70 }] },
+  { id: "f_pao_frances", name: "Pão francês", cat: "cereais", kcal: 300, p: 8.0, c: 58.6, f: 3.1, portions: [{ label: "unidade", g: 50 }] },
+  { id: "f_pao_forma_integral", name: "Pão de forma integral", cat: "cereais", kcal: 253, p: 9.4, c: 49.9, f: 3.5, portions: [{ label: "fatia", g: 25 }] },
+  { id: "f_aveia", name: "Aveia em flocos", cat: "cereais", kcal: 394, p: 13.9, c: 66.6, f: 8.5, portions: [{ label: "colher de sopa", g: 15 }] },
+  { id: "f_tapioca", name: "Tapioca (goma)", cat: "cereais", kcal: 240, p: 0, c: 59.0, f: 0, portions: [{ label: "colher de sopa", g: 20 }] },
+  { id: "f_cuscuz", name: "Cuscuz de milho cozido", cat: "cereais", kcal: 113, p: 2.2, c: 25.3, f: 0.7, portions: [{ label: "fatia", g: 80 }] },
+  { id: "f_batata", name: "Batata inglesa cozida", cat: "cereais", kcal: 52, p: 1.2, c: 11.9, f: 0.1, portions: [{ label: "unidade média", g: 120 }] },
+  { id: "f_batata_doce", name: "Batata-doce cozida", cat: "cereais", kcal: 77, p: 0.6, c: 18.4, f: 0.1, portions: [{ label: "unidade média", g: 130 }] },
+  { id: "f_mandioca", name: "Mandioca cozida", cat: "cereais", kcal: 125, p: 0.6, c: 30.1, f: 0.3, portions: [{ label: "pedaço", g: 100 }] },
+
+  // Leguminosas
+  { id: "f_feijao_carioca", name: "Feijão carioca cozido", cat: "leguminosas", kcal: 76, p: 4.8, c: 13.6, f: 0.5, portions: [{ label: "concha", g: 80 }] },
+  { id: "f_feijao_preto", name: "Feijão preto cozido", cat: "leguminosas", kcal: 77, p: 4.5, c: 14.0, f: 0.5, portions: [{ label: "concha", g: 80 }] },
+  { id: "f_lentilha", name: "Lentilha cozida", cat: "leguminosas", kcal: 93, p: 6.3, c: 16.3, f: 0.5, portions: [{ label: "concha", g: 80 }] },
+  { id: "f_grao_bico", name: "Grão-de-bico cozido", cat: "leguminosas", kcal: 130, p: 8.4, c: 18.0, f: 2.1, portions: [{ label: "concha", g: 80 }] },
+  { id: "f_soja", name: "Soja cozida", cat: "leguminosas", kcal: 151, p: 12.5, c: 9.9, f: 6.4, portions: [{ label: "concha", g: 80 }] },
+
+  // Carnes e ovos
+  { id: "f_frango_peito", name: "Peito de frango grelhado", cat: "carnes", kcal: 159, p: 32.0, c: 0, f: 2.5, portions: [{ label: "filé médio", g: 100 }] },
+  { id: "f_frango_coxa", name: "Coxa de frango cozida (s/ pele)", cat: "carnes", kcal: 167, p: 26.9, c: 0, f: 6.0, portions: [{ label: "unidade", g: 55 }] },
+  { id: "f_patinho", name: "Patinho moído cozido", cat: "carnes", kcal: 219, p: 35.9, c: 0, f: 7.3, portions: [{ label: "porção", g: 100 }] },
+  { id: "f_alcatra", name: "Alcatra grelhada", cat: "carnes", kcal: 241, p: 32.0, c: 0, f: 11.8, portions: [{ label: "bife", g: 100 }] },
+  { id: "f_tilapia", name: "Tilápia grelhada", cat: "carnes", kcal: 128, p: 26.2, c: 0, f: 1.7, portions: [{ label: "filé", g: 100 }] },
+  { id: "f_salmao", name: "Salmão grelhado", cat: "carnes", kcal: 243, p: 23.9, c: 0, f: 15.9, portions: [{ label: "posta", g: 100 }] },
+  { id: "f_atum_lata", name: "Atum em água (lata)", cat: "carnes", kcal: 116, p: 25.5, c: 0, f: 1.0, portions: [{ label: "lata drenada", g: 120 }] },
+  { id: "f_ovo", name: "Ovo de galinha cozido", cat: "carnes", kcal: 146, p: 13.3, c: 0.6, f: 9.5, portions: [{ label: "unidade", g: 50 }] },
+  { id: "f_ovo_clara", name: "Clara de ovo cozida", cat: "carnes", kcal: 59, p: 13.4, c: 0, f: 0.1, portions: [{ label: "unidade", g: 33 }] },
+
+  // Laticínios
+  { id: "f_leite_integral", name: "Leite integral", cat: "laticinios", kcal: 61, p: 3.2, c: 4.7, f: 3.3, portions: [{ label: "copo", g: 200 }] },
+  { id: "f_leite_desnatado", name: "Leite desnatado", cat: "laticinios", kcal: 34, p: 3.4, c: 5.0, f: 0.2, portions: [{ label: "copo", g: 200 }] },
+  { id: "f_iogurte_natural", name: "Iogurte natural integral", cat: "laticinios", kcal: 51, p: 4.1, c: 1.9, f: 3.0, portions: [{ label: "pote", g: 170 }] },
+  { id: "f_queijo_minas", name: "Queijo minas frescal", cat: "laticinios", kcal: 264, p: 17.4, c: 3.2, f: 20.2, portions: [{ label: "fatia", g: 30 }] },
+  { id: "f_queijo_mussarela", name: "Queijo mussarela", cat: "laticinios", kcal: 330, p: 22.6, c: 3.0, f: 25.2, portions: [{ label: "fatia", g: 20 }] },
+  { id: "f_requeijao", name: "Requeijão cremoso", cat: "laticinios", kcal: 257, p: 9.6, c: 3.0, f: 23.0, portions: [{ label: "colher de sopa", g: 30 }] },
+
+  // Frutas
+  { id: "f_banana", name: "Banana prata", cat: "frutas", kcal: 98, p: 1.3, c: 26.0, f: 0.1, portions: [{ label: "unidade", g: 70 }] },
+  { id: "f_maca", name: "Maçã", cat: "frutas", kcal: 56, p: 0.3, c: 15.2, f: 0.4, portions: [{ label: "unidade média", g: 130 }] },
+  { id: "f_mamao", name: "Mamão formosa", cat: "frutas", kcal: 45, p: 0.8, c: 11.6, f: 0.1, portions: [{ label: "fatia", g: 100 }] },
+  { id: "f_laranja", name: "Laranja pera", cat: "frutas", kcal: 37, p: 1.0, c: 8.9, f: 0.1, portions: [{ label: "unidade", g: 130 }] },
+  { id: "f_morango", name: "Morango", cat: "frutas", kcal: 30, p: 0.9, c: 6.8, f: 0.3, portions: [{ label: "unidade", g: 12 }] },
+  { id: "f_abacate", name: "Abacate", cat: "frutas", kcal: 96, p: 1.2, c: 6.0, f: 8.4, portions: [{ label: "colher de sopa", g: 30 }] },
+  { id: "f_uva", name: "Uva itália", cat: "frutas", kcal: 49, p: 0.7, c: 13.6, f: 0.2, portions: [{ label: "cacho pequeno", g: 100 }] },
+
+  // Vegetais
+  { id: "f_alface", name: "Alface", cat: "vegetais", kcal: 11, p: 1.3, c: 1.7, f: 0.2, portions: [{ label: "folha", g: 10 }] },
+  { id: "f_tomate", name: "Tomate cru", cat: "vegetais", kcal: 15, p: 1.1, c: 3.1, f: 0.2, portions: [{ label: "unidade", g: 90 }] },
+  { id: "f_cenoura", name: "Cenoura crua", cat: "vegetais", kcal: 34, p: 1.3, c: 7.7, f: 0.2, portions: [{ label: "unidade média", g: 70 }] },
+  { id: "f_brocolis", name: "Brócolis cozido", cat: "vegetais", kcal: 25, p: 2.1, c: 4.0, f: 0.5, portions: [{ label: "porção", g: 80 }] },
+  { id: "f_couve", name: "Couve manteiga refogada", cat: "vegetais", kcal: 90, p: 1.7, c: 8.7, f: 5.8, portions: [{ label: "porção", g: 60 }] },
+  { id: "f_abobrinha", name: "Abobrinha cozida", cat: "vegetais", kcal: 19, p: 1.1, c: 4.3, f: 0.2, portions: [{ label: "porção", g: 80 }] },
+
+  // Gorduras e oleaginosas
+  { id: "f_azeite", name: "Azeite de oliva", cat: "gorduras", kcal: 884, p: 0, c: 0, f: 100, portions: [{ label: "colher de sopa", g: 8 }, { label: "fio", g: 4 }] },
+  { id: "f_amendoim", name: "Amendoim torrado", cat: "gorduras", kcal: 606, p: 22.5, c: 18.7, f: 54.0, portions: [{ label: "punhado", g: 30 }] },
+  { id: "f_castanha_para", name: "Castanha-do-pará", cat: "gorduras", kcal: 643, p: 14.5, c: 15.1, f: 63.5, portions: [{ label: "unidade", g: 5 }] },
+  { id: "f_pasta_amendoim", name: "Pasta de amendoim", cat: "gorduras", kcal: 617, p: 24.0, c: 18.0, f: 50.0, portions: [{ label: "colher de sopa", g: 20 }] },
+
+  // Outros
+  { id: "f_whey", name: "Whey protein (pó)", cat: "outros", kcal: 400, p: 80.0, c: 8.0, f: 6.0, portions: [{ label: "scoop", g: 30 }] },
+  { id: "f_mel", name: "Mel", cat: "outros", kcal: 309, p: 0, c: 84.0, f: 0, portions: [{ label: "colher de sopa", g: 20 }] },
+];
+
 
 // TMB pela equação de Mifflin-St Jeor (1990)
 const mifflinStJeor = (kg, cm, age, sex) => {
@@ -320,7 +404,8 @@ const KEY_WORKOUTS = "workouts:v1";
 const KEY_SCHEDULE = "schedule:v1";
 const KEY_HISTORY = "history:v1";
 const KEY_PROFILE = "profile:v1";
-const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY, KEY_PROFILE];
+const KEY_FOODS = "foods:v1";
+const ALL_KEYS = [KEY_LOGS, KEY_PROGRESS, KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_HISTORY, KEY_PROFILE, KEY_FOODS];
 
 // uid do usuário logado; setado pelo App ao autenticar. Sem uid, cai no localStorage.
 let CURRENT_UID = null;
@@ -362,7 +447,7 @@ async function storeSet(key, value) {
   }
 }
 
-const ACERVO_KEYS = [KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE];
+const ACERVO_KEYS = [KEY_LIBRARY, KEY_WORKOUTS, KEY_SCHEDULE, KEY_FOODS];
 const HISTORICO_KEYS = [KEY_HISTORY, KEY_LOGS, KEY_PROFILE];
 
 function downloadJson(payload, filename) {
@@ -788,7 +873,180 @@ function ModuleHeader({ eyebrow, title, right }) {
   );
 }
 
-function NutritionView({ tab, profile }) {
+// formata um valor em gramas para exibição (inteiro quando possível)
+function fmtG(g) {
+  const n = Math.round(g * 10) / 10;
+  return (Number.isInteger(n) ? n : n.toFixed(1)) + " g";
+}
+
+// formulário de cadastro/edição de alimento
+function FoodForm({ initial, onSave, onDelete, onClose, accent }) {
+  const isNew = !initial;
+  const [name, setName] = React.useState(initial ? initial.name : "");
+  const [cat, setCat] = React.useState(initial ? initial.cat : "outros");
+  const [kcal, setKcal] = React.useState(initial ? String(initial.kcal) : "");
+  const [p, setP] = React.useState(initial ? String(initial.p) : "");
+  const [c, setC] = React.useState(initial ? String(initial.c) : "");
+  const [f, setF] = React.useState(initial ? String(initial.f) : "");
+  const [portions, setPortions] = React.useState(initial && initial.portions ? initial.portions.map((x) => ({ ...x })) : []);
+  const [error, setError] = React.useState("");
+
+  const setPortion = (i, patch) => setPortions((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const addPortion = () => setPortions((prev) => [...prev, { label: "", g: "" }]);
+  const rmPortion = (i) => setPortions((prev) => prev.filter((_, j) => j !== i));
+
+  const save = () => {
+    if (!name.trim()) { setError("Dê um nome ao alimento."); return; }
+    const kc = parseNum(kcal), pp = parseNum(p), cc = parseNum(c), ff = parseNum(f);
+    if ([kc, pp, cc, ff].some((v) => isNaN(v) || v < 0)) { setError("Preencha calorias e macros com números válidos (por 100 g)."); return; }
+    const cleanPortions = portions
+      .map((x) => ({ label: String(x.label).trim(), g: parseNum(x.g) }))
+      .filter((x) => x.label && !isNaN(x.g) && x.g > 0);
+    onSave({
+      id: initial ? initial.id : null,
+      name: name.trim(), cat,
+      kcal: kc, p: pp, c: cc, f: ff,
+      portions: cleanPortions,
+      seed: initial ? initial.seed : false,
+    });
+  };
+
+  return (
+    <div style={overlay}>
+      <div style={{ ...panel, maxHeight: "92vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, fontWeight: 700, textTransform: "uppercase" }}>{isNew ? "Novo alimento" : "Editar alimento"}</span>
+          <button onClick={onClose} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Fechar"><Icon.X /></button>
+        </div>
+
+        <label style={labelStyle}>Nome</label>
+        <input value={name} onChange={(e) => { setName(e.target.value); setError(""); }} placeholder="Ex.: Arroz branco cozido" style={{ ...textInput, marginBottom: 14 }} />
+
+        <label style={labelStyle}>Categoria</label>
+        <select value={cat} onChange={(e) => setCat(e.target.value)} style={{ ...textInput, marginBottom: 14 }}>
+          {FOOD_CATEGORIES.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+        </select>
+
+        <div style={{ fontSize: 12, color: "#7a7a82", marginBottom: 8, fontWeight: 600 }}>Valores por 100 g</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Calorias</label>
+            <input inputMode="decimal" value={kcal} onChange={(e) => { setKcal(e.target.value); setError(""); }} placeholder="kcal" style={{ ...textInput, textAlign: "center" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ ...labelStyle, color: MACRO_COLORS.protein }}>Proteína</label>
+            <input inputMode="decimal" value={p} onChange={(e) => { setP(e.target.value); setError(""); }} placeholder="g" style={{ ...textInput, textAlign: "center" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ ...labelStyle, color: MACRO_COLORS.carb }}>Carbo</label>
+            <input inputMode="decimal" value={c} onChange={(e) => { setC(e.target.value); setError(""); }} placeholder="g" style={{ ...textInput, textAlign: "center" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ ...labelStyle, color: MACRO_COLORS.fat }}>Gordura</label>
+            <input inputMode="decimal" value={f} onChange={(e) => { setF(e.target.value); setError(""); }} placeholder="g" style={{ ...textInput, textAlign: "center" }} />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 12, color: "#7a7a82", fontWeight: 600 }}>Porções (medidas naturais)</span>
+          <button onClick={addPortion} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}><Icon.Plus /> Adicionar</button>
+        </div>
+        {portions.length === 0 && <div style={{ fontSize: 12, color: "#5a5a62", marginBottom: 10 }}>Opcional. Ex.: "1 fatia" = 25 g.</div>}
+        {portions.map((x, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <input value={x.label} onChange={(e) => setPortion(i, { label: e.target.value })} placeholder="nome (ex.: fatia)" style={{ ...textInput, flex: 1 }} />
+            <input inputMode="decimal" value={x.g} onChange={(e) => setPortion(i, { g: e.target.value })} placeholder="g" style={{ ...textInput, width: 64, textAlign: "center" }} />
+            <button onClick={() => rmPortion(i)} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Remover porção"><Icon.Trash width={15} height={15} /></button>
+          </div>
+        ))}
+
+        {error && <div style={{ color: "#e36a5a", fontSize: 12.5, fontWeight: 600, margin: "4px 0 12px" }}>{error}</div>}
+
+        <button onClick={save} style={{ ...primaryBtn(accent), width: "100%", justifyContent: "center", marginTop: 8 }}>
+          <Icon.Check /> {isNew ? "Adicionar alimento" : "Salvar alterações"}
+        </button>
+        {!isNew && onDelete && (
+          <button onClick={() => onDelete(initial.id)} style={{ width: "100%", marginTop: 8, padding: "12px", background: "transparent", color: "#e36a5a", border: "1px solid #3a2a2a", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+            Excluir alimento
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// tela de Alimentos (banco): busca + lista por categoria
+function FoodsView({ foods, onSave, onDelete }) {
+  const [query, setQuery] = React.useState("");
+  const [editing, setEditing] = React.useState(null); // food | "new" | null
+  const list = Object.values(foods || {});
+  const q = query.trim().toLowerCase();
+  const filtered = q ? list.filter((x) => x.name.toLowerCase().includes(q)) : list;
+  // agrupa por categoria, na ordem de FOOD_CATEGORIES
+  const byCat = {};
+  filtered.forEach((x) => { (byCat[x.cat] = byCat[x.cat] || []).push(x); });
+  Object.values(byCat).forEach((arr) => arr.sort((a, b) => a.name.localeCompare(b.name)));
+
+  return (
+    <div style={{ padding: "22px 18px 30px" }}>
+      <ModuleHeader eyebrow={"Nutrição · " + list.length + " alimentos"} title="Alimentos" right={
+        <button onClick={() => setEditing("new")} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10B981", border: "none", borderRadius: 8, padding: "8px 14px", color: "#062b20", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+          <Icon.Plus /> Novo
+        </button>
+      } />
+
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar alimento..." style={{ ...textInput, marginBottom: 18 }} />
+
+      {filtered.length === 0 && (
+        <div style={{ ...card, padding: 24, textAlign: "center" }}>
+          <div style={{ color: "#8a8a92", fontSize: 14, lineHeight: 1.5, marginBottom: 14 }}>
+            {q ? <React.Fragment>Nenhum alimento encontrado para "<strong style={{ color: "#b0b0b8" }}>{query}</strong>".</React.Fragment> : "Sua base de alimentos está vazia."}
+          </div>
+          <button onClick={() => setEditing("new")} style={{ ...primaryBtn("#10B981"), justifyContent: "center" }}>
+            <Icon.Plus /> {q ? "Cadastrar \"" + query + "\"" : "Adicionar alimento"}
+          </button>
+        </div>
+      )}
+
+      {FOOD_CATEGORIES.filter((k) => byCat[k.id] && byCat[k.id].length).map((k) => (
+        <div key={k.id} style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 8 }}>{k.name}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {byCat[k.id].map((food) => (
+              <button key={food.id} onClick={() => setEditing(food)} style={{ ...card, padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left", width: "100%" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14.5, color: "#f0f0f2", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{food.name}</div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 4, fontSize: 12 }}>
+                    <span style={{ color: "#b0b0b8", fontWeight: 700 }}>{Math.round(food.kcal)} kcal</span>
+                    <span style={{ color: MACRO_COLORS.protein }}>P {fmtG(food.p)}</span>
+                    <span style={{ color: MACRO_COLORS.carb }}>C {fmtG(food.c)}</span>
+                    <span style={{ color: MACRO_COLORS.fat }}>G {fmtG(food.f)}</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, color: "#5a5a62", flexShrink: 0 }}>/100g</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {editing && (
+        <FoodForm
+          initial={editing === "new" ? null : editing}
+          accent="#10B981"
+          onSave={async (food) => { await onSave(food); setEditing(null); }}
+          onDelete={async (id) => { await onDelete(id); setEditing(null); }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood }) {
+  if (tab === "nalimentos") {
+    return <FoodsView foods={foods} onSave={onSaveFood} onDelete={onDeleteFood} />;
+  }
   const screens = {
     nhoje: { title: "Hoje", desc: "Aqui vai aparecer o resumo do dia: calorias, macros e refeições registradas." },
     nsemana: { title: "Semana", desc: "Aqui vai aparecer a visão semanal: adesão à dieta e médias por dia." },
@@ -1160,6 +1418,7 @@ function App() {
   const [progress, setProgress] = useState({});
   const [history, setHistory] = useState([]);
   const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
+  const [foods, setFoods] = useState({});
   const accentPref = (profile && profile.prefs && profile.prefs.accent) || DEFAULT_ACCENT;
   setAccentVar(accentPref); // síncrono: garante que estilos no render usem o acento certo
   useEffect(() => {
@@ -1254,12 +1513,14 @@ function App() {
       const pr = await storeGet(KEY_PROGRESS, {});
       const hs = await storeGet(KEY_HISTORY, []);
       const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
+      let fd = await storeGet(KEY_FOODS, null);
       let lb = await storeGet(KEY_LIBRARY, null);
       let wk = await storeGet(KEY_WORKOUTS, null);
       let sc = await storeGet(KEY_SCHEDULE, null);
       if (!lb) { lb = DEFAULT_LIBRARY; await storeSet(KEY_LIBRARY, lb); }
       if (!wk) { wk = DEFAULT_WORKOUTS; await storeSet(KEY_WORKOUTS, wk); }
       if (!sc) { sc = DEFAULT_SCHEDULE; await storeSet(KEY_SCHEDULE, sc); }
+      if (!fd) { fd = {}; FOOD_SEED.forEach((x) => { fd[x.id] = { ...x, seed: true }; }); await storeSet(KEY_FOODS, fd); }
       // migração: adiciona muscles a exercícios salvos antes desse recurso
       let libMigrated = false;
       Object.values(lb).forEach((ex) => {
@@ -1290,7 +1551,7 @@ function App() {
       if (histMigrated) await storeSet(KEY_HISTORY, hs);
       if (cancelled) return;
       setLogs(lg); setProgress(pr); setHistory(hs); setProfile(prof);
-      setLib(lb); setWorkouts(wk); setSchedule(sc);
+      setLib(lb); setWorkouts(wk); setSchedule(sc); setFoods(fd);
       setLoaded(true);
     })();
     return () => { cancelled = true; };
@@ -1491,6 +1752,21 @@ function App() {
     await storeSet(KEY_PROFILE, next);
   };
 
+  // ---------- alimentos ----------
+  const saveFood = async (food) => {
+    const id = food.id || uid("food_");
+    const next = { ...foods, [id]: { ...food, id } };
+    setFoods(next);
+    await storeSet(KEY_FOODS, next);
+    return id;
+  };
+  const deleteFood = async (id) => {
+    const next = { ...foods };
+    delete next[id];
+    setFoods(next);
+    await storeSet(KEY_FOODS, next);
+  };
+
   // vincula senha (email/senha) à conta logada atual (ex.: quem só tem Google)
   const linkPassword = async (newPass) => {
     if (!window.fbAuth || !authUser) throw new Error("no-user");
@@ -1639,7 +1915,7 @@ function App() {
             appVersion={APP_VERSION}
           />
         ) : module === "nutricao" ? (
-          <NutritionView tab={nutriTab} profile={profile} />
+          <NutritionView tab={nutriTab} profile={profile} foods={foods} onSaveFood={saveFood} onDeleteFood={deleteFood} />
         ) : activeWorkout && getWorkout(activeWorkout) ? (
           <SessionDetail
             sessionKey={activeWorkout}
