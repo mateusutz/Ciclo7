@@ -6,6 +6,19 @@ const { useState, useEffect, useMemo, useCallback, useRef } = React;
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const PALETTE = ["#EF4444", "#2563EB", "#8B5CF6", "#10B981", "#F59E0B", "#EC4899"];
+// Tons de acento curados (funcionam bem sobre o tema escuro Forge)
+const ACCENT_CHOICES = [
+  { id: "vermelho", color: "#EF4444", name: "Vermelho" },
+  { id: "azul", color: "#2563EB", name: "Azul" },
+  { id: "verde", color: "#10B981", name: "Verde" },
+  { id: "roxo", color: "#8B5CF6", name: "Roxo" },
+  { id: "ambar", color: "#F59E0B", name: "Âmbar" },
+];
+const DEFAULT_ACCENT = "#EF4444";
+const APP_VERSION = "v21";
+// acento ativo (mutável; atualizado a partir das preferências do usuário)
+let ACCENT = DEFAULT_ACCENT;
+const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
 // decide texto claro ou escuro conforme a luminância da cor de fundo
 const onColor = (hex) => {
   if (!hex || hex[0] !== "#") return "#FFFFFF";
@@ -449,17 +462,17 @@ function LoadingScreen({ label }) {
         {/* arco que gira */}
         <svg width={size} height={size} style={{ position: "absolute", inset: 0, animation: "ciclo7-spin 1s linear infinite" }}>
           <circle
-            cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EF4444" strokeWidth={stroke}
+            cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ACCENT} strokeWidth={stroke}
             strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * 0.72}
           />
         </svg>
         {/* halter no centro, com pulso */}
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#EF4444", animation: "ciclo7-pulse 1.4s ease-in-out infinite" }}>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: ACCENT, animation: "ciclo7-pulse 1.4s ease-in-out infinite" }}>
           <ForgeMark size={56} />
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase", color: "#f0f0f2" }}><span style={{ color: "#EF4444" }}>F</span>orge</span>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase", color: "#f0f0f2" }}><span style={{ color: ACCENT }}>F</span>orge</span>
         <span style={{ color: "#5a5a62", fontSize: 13, fontWeight: 600 }}>{label || "preparando seu treino"}<span className="ciclo7-dots"></span></span>
       </div>
     </div>
@@ -591,11 +604,11 @@ function LoginScreen() {
       <div style={{ width: "100%", maxWidth: 360 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 11, justifyContent: "center", marginBottom: 6 }}>
           <ForgeMark size={40} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 40, letterSpacing: 0.5, textTransform: "uppercase", lineHeight: 1 }}><span style={{ color: "#EF4444" }}>F</span>orge</span>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 40, letterSpacing: 0.5, textTransform: "uppercase", lineHeight: 1 }}><span style={{ color: ACCENT }}>F</span>orge</span>
         </div>
         <p style={{ textAlign: "center", color: "#7a7a82", fontSize: 13.5, margin: "0 0 30px" }}>Seu treino, em qualquer aparelho.</p>
 
-        <button onClick={google} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: pendingCred ? "#EF4444" : "#fff", color: pendingCred ? "#0B0F19" : "#1a1a1a", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+        <button onClick={google} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: pendingCred ? ACCENT : "#fff", color: pendingCred ? "#0B0F19" : "#1a1a1a", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
           {!pendingCred && <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.98 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>}
           {pendingCred ? "Continuar com Google e vincular" : "Continuar com Google"}
         </button>
@@ -618,13 +631,13 @@ function LoginScreen() {
         {err && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", lineHeight: 1.45 }}>{err}</div>}
         {info && <div style={{ color: "#10B981", fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", lineHeight: 1.45 }}>{info}</div>}
 
-        <button onClick={emailAuth} disabled={busy} style={{ ...primaryBtn("#EF4444"), width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}>
+        <button onClick={emailAuth} disabled={busy} style={{ ...primaryBtn(ACCENT), width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}>
           {mode === "up" ? "Criar conta" : "Entrar"}
         </button>
 
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 13.5, color: "#8a8a92" }}>
           {mode === "up" ? "Já tem conta? " : "Ainda não tem conta? "}
-          <button onClick={() => { setMode(mode === "up" ? "in" : "up"); setErr(""); setInfo(""); }} style={{ background: "none", border: "none", color: "#EF4444", fontWeight: 700, cursor: "pointer", fontSize: 13.5, padding: 0 }}>
+          <button onClick={() => { setMode(mode === "up" ? "in" : "up"); setErr(""); setInfo(""); }} style={{ background: "none", border: "none", color: ACCENT, fontWeight: 700, cursor: "pointer", fontSize: 13.5, padding: 0 }}>
             {mode === "up" ? "Entrar" : "Criar conta"}
           </button>
         </div>
@@ -698,8 +711,9 @@ function NutritionView({ tab }) {
 // ============================================================
 // PROFILE VIEW (Conta, Dados corporais, Objetivo)
 // ============================================================
-function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight }) {
+function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, onLinkPassword, onLinkGoogle, appVersion }) {
   const p = profile || {};
+  const prefs = p.prefs || { accent: DEFAULT_ACCENT, unit: "kg" };
   const [name, setName] = React.useState(p.name || "");
   const [birth, setBirth] = React.useState(p.birth || "");
   const [sex, setSex] = React.useState(p.sex || "");
@@ -708,6 +722,11 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
   const [savedMsg, setSavedMsg] = React.useState(false);
   const [newWeight, setNewWeight] = React.useState("");
   const [confirmDelW, setConfirmDelW] = React.useState(null);
+  // vínculo de senha (pra quem só tem Google)
+  const [showAddPass, setShowAddPass] = React.useState(false);
+  const [linkPass, setLinkPass] = React.useState("");
+  const [linkMsg, setLinkMsg] = React.useState("");
+  const [linkErr, setLinkErr] = React.useState("");
 
   const dirty = name !== (p.name || "") || birth !== (p.birth || "") || sex !== (p.sex || "") || height !== (p.height || "") || goal !== (p.goal || "");
 
@@ -716,6 +735,13 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
     setSavedMsg(true);
     setTimeout(() => setSavedMsg(false), 2000);
   };
+
+  const setAccent = (hex) => onSave({ prefs: { ...prefs, accent: hex } });
+  const setUnit = (u) => onSave({ prefs: { ...prefs, unit: u } });
+  const unit = prefs.unit || "kg";
+  const KG_PER_LB = 0.45359237;
+  const toDisplayWeight = (kg) => unit === "lb" ? +(kg / KG_PER_LB).toFixed(1) : kg;
+  const fromInputWeight = (val) => { const n = parseFloat(String(val).replace(",", ".")); if (!n) return null; return unit === "lb" ? +(n * KG_PER_LB).toFixed(2) : n; };
 
   const age = (() => {
     if (!birth) return null;
@@ -738,11 +764,26 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
     { id: "manter", label: "Manter" },
   ];
 
-  const provider = authUser && authUser.providerData && authUser.providerData[0] ? authUser.providerData[0].providerId : "";
-  const methodLabel = provider === "google.com" ? "Google" : (provider === "password" ? "Email e senha" : (provider || "—"));
+  // métodos de login vinculados (pode ter mais de um)
+  const providerIds = (authUser && authUser.providerData ? authUser.providerData.map((x) => x.providerId) : []);
+  const hasGoogle = providerIds.includes("google.com");
+  const hasPassword = providerIds.includes("password");
+  const photo = (authUser && authUser.providerData || []).map((x) => x.photoURL).find(Boolean) || (authUser && authUser.photoURL) || "";
+
+  const doLinkPassword = async () => {
+    setLinkErr(""); setLinkMsg("");
+    if (!linkPass || linkPass.length < 6) { setLinkErr("A senha precisa de pelo menos 6 caracteres."); return; }
+    try {
+      await onLinkPassword(linkPass);
+      setLinkMsg("Senha adicionada! Agora você também entra com email e senha.");
+      setLinkPass(""); setShowAddPass(false);
+    } catch (e) {
+      setLinkErr(e && e.code === "auth/requires-recent-login" ? "Por segurança, saia e entre de novo antes de adicionar a senha." : "Não consegui adicionar a senha. Tente de novo.");
+    }
+  };
 
   const addW = async () => {
-    const kg = parseFloat(String(newWeight).replace(",", "."));
+    const kg = fromInputWeight(newWeight);
     if (!kg || kg <= 0) return;
     await onAddWeight(kg);
     setNewWeight("");
@@ -757,12 +798,39 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
       <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>Conta</div>
       <div style={{ ...card, padding: 16, marginBottom: 22 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
-          <span style={{ width: 46, height: 46, borderRadius: "50%", background: "#1B2536", color: "#9a9aa2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.User width={22} height={22} /></span>
+          {photo
+            ? <img src={photo} alt="" width={46} height={46} style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+            : <span style={{ width: 46, height: 46, borderRadius: "50%", background: "#1B2536", color: "#9a9aa2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.User width={22} height={22} /></span>}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 14.5, color: "#f0f0f2", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{authUser ? authUser.email : "—"}</div>
-            <div style={{ fontSize: 12.5, color: "#7a7a82", marginTop: 2 }}>Entra com {methodLabel}</div>
+            <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+              {hasGoogle && <span style={{ fontSize: 11, fontWeight: 700, color: "#9a9aa2", background: "#1B2536", border: "1px solid #2A3344", borderRadius: 6, padding: "2px 7px" }}>Google</span>}
+              {hasPassword && <span style={{ fontSize: 11, fontWeight: 700, color: "#9a9aa2", background: "#1B2536", border: "1px solid #2A3344", borderRadius: 6, padding: "2px 7px" }}>Email e senha</span>}
+              {!hasGoogle && !hasPassword && <span style={{ fontSize: 12, color: "#7a7a82" }}>—</span>}
+            </div>
           </div>
         </div>
+
+        {hasGoogle && !hasPassword && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #2A3344" }}>
+            {!showAddPass ? (
+              <button onClick={() => { setShowAddPass(true); setLinkErr(""); setLinkMsg(""); }} style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", color: ACCENT, fontSize: 13.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+                <Icon.Plus /> Adicionar senha a esta conta
+              </button>
+            ) : (
+              <div>
+                <div style={{ fontSize: 12.5, color: "#8a8a92", lineHeight: 1.5, marginBottom: 10 }}>Crie uma senha pra também entrar com email e senha, além do Google.</div>
+                <input type="password" value={linkPass} onChange={(e) => { setLinkPass(e.target.value); setLinkErr(""); }} placeholder="Nova senha (mín. 6 caracteres)" style={{ ...textInput, marginBottom: 8 }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setShowAddPass(false); setLinkPass(""); setLinkErr(""); }} style={{ flex: 1, padding: "10px", background: "transparent", color: "#9a9aa2", border: "1px solid #2A3344", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+                  <button onClick={doLinkPassword} style={{ ...primaryBtn(ACCENT), flex: 1, justifyContent: "center", padding: "10px" }}>Salvar senha</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {linkMsg && <div style={{ marginTop: 10, color: "#10B981", fontSize: 12.5, fontWeight: 600, lineHeight: 1.4 }}>{linkMsg}</div>}
+        {linkErr && <div style={{ marginTop: 10, color: "#e36a5a", fontSize: 12.5, fontWeight: 600, lineHeight: 1.4 }}>{linkErr}</div>}
       </div>
 
       {/* DADOS CORPORAIS */}
@@ -786,7 +854,7 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
         <label style={labelStyle}>Sexo</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
           {[{ id: "m", l: "Masculino" }, { id: "f", l: "Feminino" }, { id: "o", l: "Outro" }].map((o) => (
-            <button key={o.id} onClick={() => setSex(o.id)} style={{ flex: 1, padding: "10px 4px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (sex === o.id ? "#EF4444" : "#2E3A4D"), background: sex === o.id ? "#EF4444" : "transparent", color: sex === o.id ? onColor("#EF4444") : "#9a9aa2" }}>{o.l}</button>
+            <button key={o.id} onClick={() => setSex(o.id)} style={{ flex: 1, padding: "10px 4px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (sex === o.id ? ACCENT : "#2E3A4D"), background: sex === o.id ? ACCENT : "transparent", color: sex === o.id ? onColor(ACCENT) : "#9a9aa2" }}>{o.l}</button>
           ))}
         </div>
       </div>
@@ -796,17 +864,36 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
       <div style={{ ...card, padding: 16, marginBottom: 14 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {goals.map((g) => (
-            <button key={g.id} onClick={() => setGoal(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, cursor: "pointer", border: "1.5px solid " + (goal === g.id ? "#EF4444" : "#2E3A4D"), background: goal === g.id ? "#EF444415" : "transparent", textAlign: "left" }}>
-              <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, border: "2px solid " + (goal === g.id ? "#EF4444" : "#3a3a42"), background: goal === g.id ? "#EF4444" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{goal === g.id ? <Icon.Check width={11} height={11} /> : null}</span>
+            <button key={g.id} onClick={() => setGoal(g.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, cursor: "pointer", border: "1.5px solid " + (goal === g.id ? ACCENT : "#2E3A4D"), background: goal === g.id ? "#EF444415" : "transparent", textAlign: "left" }}>
+              <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, border: "2px solid " + (goal === g.id ? ACCENT : "#3a3a42"), background: goal === g.id ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{goal === g.id ? <Icon.Check width={11} height={11} /> : null}</span>
               <span style={{ fontSize: 14, fontWeight: 600, color: goal === g.id ? "#f0f0f2" : "#b0b0b8" }}>{g.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <button onClick={saveBasics} disabled={!dirty} style={{ ...primaryBtn("#EF4444"), width: "100%", justifyContent: "center", opacity: dirty ? 1 : 0.5, marginBottom: 8 }}>
+      <button onClick={saveBasics} disabled={!dirty} style={{ ...primaryBtn(ACCENT), width: "100%", justifyContent: "center", opacity: dirty ? 1 : 0.5, marginBottom: 8 }}>
         <Icon.Check /> {savedMsg ? "Salvo!" : "Salvar dados"}
       </button>
+
+      {/* PREFERÊNCIAS */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "22px 0 10px" }}>Preferências</div>
+      <div style={{ ...card, padding: 16, marginBottom: 14 }}>
+        <label style={labelStyle}>Tom de acento</label>
+        <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+          {ACCENT_CHOICES.map((a) => (
+            <button key={a.id} onClick={() => setAccent(a.color)} aria-label={a.name} title={a.name} style={{ flex: 1, height: 38, borderRadius: 9, cursor: "pointer", background: a.color, border: prefs.accent === a.color ? "3px solid #f0f0f2" : "3px solid transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {prefs.accent === a.color ? <span style={{ color: onColor(a.color), display: "flex" }}><Icon.Check width={16} height={16} /></span> : null}
+            </button>
+          ))}
+        </div>
+        <label style={labelStyle}>Unidade de peso</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[{ id: "kg", l: "Quilos (kg)" }, { id: "lb", l: "Libras (lb)" }].map((u) => (
+            <button key={u.id} onClick={() => setUnit(u.id)} style={{ flex: 1, padding: "11px 4px", borderRadius: 9, fontSize: 13.5, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (unit === u.id ? ACCENT : "#2E3A4D"), background: unit === u.id ? ACCENT : "transparent", color: unit === u.id ? onColor(ACCENT) : "#9a9aa2" }}>{u.l}</button>
+          ))}
+        </div>
+      </div>
 
       {/* HISTÓRICO DE PESO */}
       <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "20px 0 10px" }}>Peso</div>
@@ -814,21 +901,21 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
         <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: weights.length ? 14 : 0 }}>
           <div>
             <div style={{ fontSize: 11.5, color: "#7a7a82", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Atual</div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 34, fontWeight: 700, lineHeight: 1, marginTop: 2 }}>{lastW ? lastW.kg : "—"}<span style={{ fontSize: 16, color: "#7a7a82" }}>{lastW ? " kg" : ""}</span></div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 34, fontWeight: 700, lineHeight: 1, marginTop: 2 }}>{lastW ? toDisplayWeight(lastW.kg) : "—"}<span style={{ fontSize: 16, color: "#7a7a82" }}>{lastW ? " " + unit : ""}</span></div>
           </div>
           {deltaW != null && (
             <div style={{ paddingBottom: 4 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: deltaW > 0 ? "#10B981" : (deltaW < 0 ? "#38BDF8" : "#7a7a82") }}>{deltaW > 0 ? "+" : ""}{deltaW} kg</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: deltaW > 0 ? "#10B981" : (deltaW < 0 ? "#38BDF8" : "#7a7a82") }}>{deltaW > 0 ? "+" : ""}{toDisplayWeight(Math.abs(deltaW)) * (deltaW < 0 ? -1 : 1)} {unit}</span>
               <span style={{ fontSize: 11.5, color: "#6a6a72" }}> desde o início</span>
             </div>
           )}
         </div>
 
-        {weights.length >= 2 && <MiniChart arr={weights.map((w) => ({ date: w.date, weight: w.kg }))} accent="#EF4444" />}
+        {weights.length >= 2 && <MiniChart arr={weights.map((w) => ({ date: w.date, weight: toDisplayWeight(w.kg) }))} accent={ACCENT} />}
 
         <div style={{ display: "flex", gap: 8, marginTop: weights.length ? 14 : 0 }}>
-          <input inputMode="decimal" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} placeholder="Registrar peso (kg)" style={{ ...textInput, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter") addW(); }} />
-          <button onClick={addW} style={{ ...primaryBtn("#EF4444"), padding: "0 18px" }}><Icon.Plus /></button>
+          <input inputMode="decimal" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} placeholder={"Registrar peso (" + unit + ")"} style={{ ...textInput, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter") addW(); }} />
+          <button onClick={addW} style={{ ...primaryBtn(ACCENT), padding: "0 18px" }}><Icon.Plus /></button>
         </div>
 
         {weights.length > 0 && (
@@ -839,7 +926,7 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
                 <div key={w.date} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderTop: i ? "1px solid #1c1c22" : "none" }}>
                   <span style={{ fontSize: 13, color: "#9a9aa2" }}>{new Date(w.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" })}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e4" }}>{w.kg} kg</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e4" }}>{toDisplayWeight(w.kg)} {unit}</span>
                     {isConfirm ? (
                       <React.Fragment>
                         <button onClick={() => { onDeleteWeight(w.date); setConfirmDelW(null); }} style={{ background: "#e36a5a", border: "none", borderRadius: 6, padding: "3px 8px", color: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>Excluir</button>
@@ -856,7 +943,19 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight })
         )}
       </div>
 
-      <p style={{ fontSize: 12, color: "#5a5a62", lineHeight: 1.5, marginTop: 14, textAlign: "center" }}>
+      {/* BACKUP (centralizado no Perfil) */}
+      <BackupCard />
+
+      {/* SOBRE */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "26px 0 10px" }}>Sobre</div>
+      <div style={{ ...card, padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13.5, color: "#b0b0b8", fontWeight: 600 }}>Versão do app</span>
+          <span style={{ fontSize: 13.5, color: "#7a7a82", fontWeight: 700 }}>{appVersion || "—"}</span>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 12, color: "#5a5a62", lineHeight: 1.5, marginTop: 16, textAlign: "center" }}>
         Esses dados são um registro pessoal pra acompanhar sua evolução — não são avaliação médica. Para orientação sobre peso, dieta ou treino, procure um profissional de saúde.
       </p>
     </div>
@@ -876,7 +975,17 @@ function App() {
   const [logs, setLogs] = useState({});
   const [progress, setProgress] = useState({});
   const [history, setHistory] = useState([]);
-  const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", goal: "", weights: [] });
+  const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
+  const accentPref = (profile && profile.prefs && profile.prefs.accent) || DEFAULT_ACCENT;
+  setAccentVar(accentPref); // síncrono: garante que estilos no render usem o acento certo
+  useEffect(() => {
+    setAccentVar(accentPref);
+    try { document.documentElement.style.setProperty("--accent", accentPref); } catch (e) {}
+    try {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", "#0B0F19");
+    } catch (e) {}
+  }, [accentPref]);
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [editingWorkout, setEditingWorkout] = useState(null);
   const [editingExercise, setEditingExercise] = useState(null);
@@ -956,7 +1065,7 @@ function App() {
       const lg = await storeGet(KEY_LOGS, {});
       const pr = await storeGet(KEY_PROGRESS, {});
       const hs = await storeGet(KEY_HISTORY, []);
-      const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", goal: "", weights: [] });
+      const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
       let lb = await storeGet(KEY_LIBRARY, null);
       let wk = await storeGet(KEY_WORKOUTS, null);
       let sc = await storeGet(KEY_SCHEDULE, null);
@@ -1064,7 +1173,7 @@ function App() {
     next[sessionKey] = cur;
     setProgress(next);
     await storeSet(KEY_PROGRESS, next);
-    if (count > prev && opts.rest) startTimer(opts.rest, opts.accent || "#EF4444");
+    if (count > prev && opts.rest) startTimer(opts.rest, opts.accent || ACCENT);
   };
 
   const setSub = async (sessionKey, origId, newId) => {
@@ -1151,6 +1260,13 @@ function App() {
     const next = { ...profile, ...patch };
     setProfile(next);
     await storeSet(KEY_PROFILE, next);
+  };
+
+  // vincula senha (email/senha) à conta logada atual (ex.: quem só tem Google)
+  const linkPassword = async (newPass) => {
+    if (!window.fbAuth || !authUser) throw new Error("no-user");
+    const cred = firebase.auth.EmailAuthProvider.credential(authUser.email, newPass);
+    await authUser.linkWithCredential(cred);
   };
 
   const addWeight = async (kg, dateIso) => {
@@ -1261,7 +1377,7 @@ function App() {
       <header style={headerBar}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <ForgeMark size={26} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase" }}><span style={{ color: "#EF4444" }}>F</span>orge</span>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase" }}><span style={{ color: ACCENT }}>F</span>orge</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {module && (
@@ -1281,6 +1397,8 @@ function App() {
             onSave={saveProfile}
             onAddWeight={addWeight}
             onDeleteWeight={deleteWeight}
+            onLinkPassword={linkPassword}
+            appVersion={APP_VERSION}
           />
         ) : module === "nutricao" ? (
           <NutritionView tab={nutriTab} />
@@ -1395,7 +1513,7 @@ function App() {
 
       {pendingFinish && (
         <NoteModal
-          accent={workouts[pendingFinish] ? workouts[pendingFinish].accent : "#EF4444"}
+          accent={workouts[pendingFinish] ? workouts[pendingFinish].accent : ACCENT}
           onSave={(note) => finalizeSession(pendingFinish, note)}
           onSkip={() => finalizeSession(pendingFinish, "")}
           onClose={() => setPendingFinish(null)}
@@ -1539,9 +1657,9 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
 
       <div style={{ ...card, marginTop: 24, padding: 18, borderColor: "#3a2f1f", background: "#1a1610" }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <span style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span>
+          <span style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span>
           <div style={{ fontSize: 13, color: "#c9b896", lineHeight: 1.5 }}>
-            <strong style={{ color: "#EF4444" }}>Lembrete do programa.</strong> Rode por 8–10 semanas antes de reavaliar. Qualidade de execução vale mais que quantidade — se uma sessão pesar, corte os 2 últimos isoladores.
+            <strong style={{ color: ACCENT }}>Lembrete do programa.</strong> Rode por 8–10 semanas antes de reavaliar. Qualidade de execução vale mais que quantidade — se uma sessão pesar, corte os 2 últimos isoladores.
           </div>
         </div>
       </div>
@@ -1611,7 +1729,7 @@ function ScheduleEditor({ schedule, workouts, onSet, onClose }) {
               </select>
             </div>
           ))}
-          <button onClick={onClose} style={{ ...primaryBtn("#EF4444"), width: "100%", marginTop: 18 }}>Pronto</button>
+          <button onClick={onClose} style={{ ...primaryBtn(ACCENT), width: "100%", marginTop: 18 }}>Pronto</button>
         </div>
       </div>
     </div>
@@ -1627,7 +1745,7 @@ function WorkoutsView({ workouts, onOpen, onEdit, onNew }) {
     <div style={{ padding: "22px 18px 30px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Seus treinos</div>
-        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "#EF4444", border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: ACCENT, border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
           <Icon.Plus /> Novo treino
         </button>
       </div>
@@ -1877,7 +1995,7 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
 
           {(ex.warn || ex.note) ? (
             <div style={{ display: "flex", gap: 7, alignItems: "flex-start", marginTop: 10, padding: "8px 10px", borderRadius: 8, background: ex.warn ? "#1a1410" : "#15151a", border: ex.warn ? "1px solid #3a2f1f" : "1px solid #22222a" }}>
-              {ex.warn ? <span style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span> : null}
+              {ex.warn ? <span style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span> : null}
               <span style={{ fontSize: 12.5, color: ex.warn ? "#c9b896" : "#9a9aa2", lineHeight: 1.45 }}>{ex.warn || ex.note}</span>
             </div>
           ) : null}
@@ -2136,7 +2254,7 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
           </div>
           {usedMuscles.length > 0 && (
             <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingTop: 12, paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
-              <button onClick={() => setFilter("")} style={filterChip(filter === "", "#EF4444")}>Todos</button>
+              <button onClick={() => setFilter("")} style={filterChip(filter === "", ACCENT)}>Todos</button>
               {usedMuscles.map((id) => (
                 <button key={id} onClick={() => setFilter(filter === id ? "" : id)} style={filterChip(filter === id, muscleColor(id))}>
                   {muscleName(id)}
@@ -2145,7 +2263,7 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
             </div>
           )}
           {onCreateNew && (
-            <button onClick={onCreateNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#EF4444", fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "12px 0 0" }}>
+            <button onClick={onCreateNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: ACCENT, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "12px 0 0" }}>
               <Icon.Plus /> Criar exercício novo
             </button>
           )}
@@ -2161,7 +2279,7 @@ function ExercisePicker({ lib, existing, title, closeOnPick, onPick, onCreateNew
                     {exMuscles(ex).p ? <span style={{ display: "block", marginTop: 6 }}><MuscleChips muscles={ex.muscles} /></span> : null}
                     <span style={{ display: "block", fontSize: 12, color: "#7a7a82", marginTop: 6 }}>{ex.sets}× {ex.reps} · {ex.rest}</span>
                   </span>
-                  <span style={{ color: added ? "#10B981" : "#EF4444", display: "flex", flexShrink: 0 }}>{added ? <Icon.Check /> : <Icon.Plus />}</span>
+                  <span style={{ color: added ? "#10B981" : ACCENT, display: "flex", flexShrink: 0 }}>{added ? <Icon.Check /> : <Icon.Plus />}</span>
                 </button>
               );
             })}
@@ -2288,7 +2406,7 @@ function ExerciseForm({ initial, usage, onSave, onDelete, onClose }) {
 
           {error && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{error}</div>}
 
-          <button onClick={save} style={{ ...primaryBtn("#EF4444"), width: "100%", justifyContent: "center" }}>
+          <button onClick={save} style={{ ...primaryBtn(ACCENT), width: "100%", justifyContent: "center" }}>
             <Icon.Check /> Salvar exercício
           </button>
 
@@ -2343,7 +2461,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
     <div style={{ padding: "22px 18px 30px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Biblioteca · {Object.keys(lib).length}</div>
-        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: "#EF4444", border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: ACCENT, border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
           <Icon.Plus /> Novo
         </button>
       </div>
@@ -2354,7 +2472,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
       </div>
 
       <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 12, WebkitOverflowScrolling: "touch" }}>
-        <button onClick={() => setFilter("")} style={filterChip(filter === "", "#EF4444")}>Todos</button>
+        <button onClick={() => setFilter("")} style={filterChip(filter === "", ACCENT)}>Todos</button>
         {usedMuscles.map((id) => (
           <button key={id} onClick={() => setFilter(filter === id ? "" : id)} style={filterChip(filter === id, muscleColor(id))}>
             {muscleName(id)}
@@ -2370,7 +2488,7 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontWeight: 600, fontSize: 14, color: "#f0f0f2", lineHeight: 1.3 }}>{ex.name}</span>
-                  {ex.warn ? <span style={{ color: "#EF4444", display: "flex", flexShrink: 0 }}><Icon.Warn width={13} height={13} /></span> : null}
+                  {ex.warn ? <span style={{ color: ACCENT, display: "flex", flexShrink: 0 }}><Icon.Warn width={13} height={13} /></span> : null}
                   {ytId(ex.video) ? <span style={{ color: "#10B981", display: "flex", flexShrink: 0 }}><Icon.Play width={12} height={12} /></span> : null}
                 </span>
                 {exMuscles(ex).p ? <span style={{ display: "block", marginTop: 7 }}><MuscleChips muscles={ex.muscles} /></span> : null}
@@ -2491,12 +2609,12 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
     <div style={{ padding: "22px 18px 30px" }}>
       <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 18, WebkitOverflowScrolling: "touch" }}>
         {PERIODS.map((p) => (
-          <button key={p.id} onClick={() => setPeriod(p.id)} style={filterChip(period === p.id, "#EF4444")}>{p.label}</button>
+          <button key={p.id} onClick={() => setPeriod(p.id)} style={filterChip(period === p.id, ACCENT)}>{p.label}</button>
         ))}
       </div>
 
       <div style={{ display: "flex", gap: 11, marginBottom: 22 }}>
-        <MetricCard value={completedSessions} label="treinos concluídos" accent="#EF4444" icon={<Icon.Trophy />} />
+        <MetricCard value={completedSessions} label="treinos concluídos" accent={ACCENT} icon={<Icon.Trophy />} />
         <MetricCard value={totalSets} label="cargas registradas" accent="#10B981" icon={<Icon.Dumbbell />} />
       </div>
 
@@ -2649,8 +2767,6 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
           </div>
         </React.Fragment>
       )}
-
-      <BackupCard />
     </div>
   );
 }
@@ -2667,7 +2783,7 @@ function WeeklyBars({ buckets }) {
         const y = H - padB - h;
         return (
           <g key={i}>
-            <rect x={x} y={y} width={bw * 0.64} height={h} rx={4} fill={b.sets > 0 ? "#EF4444" : "#2A3344"} opacity={b.sets > 0 ? 1 : 0.6} />
+            <rect x={x} y={y} width={bw * 0.64} height={h} rx={4} fill={b.sets > 0 ? ACCENT : "#2A3344"} opacity={b.sets > 0 ? 1 : 0.6} />
             {b.sets > 0 && <text x={x + bw * 0.32} y={y - 5} textAnchor="middle" fontSize="11" fontWeight="800" fill="#d0d0d4">{b.sets}</text>}
             <text x={x + bw * 0.32} y={H - 7} textAnchor="middle" fontSize="9" fontWeight="600" fill="#6a6a72">{b.label}</text>
           </g>
@@ -2744,11 +2860,11 @@ function BackupSection({ kind, title, desc, expectedKeys, onExport }) {
       {pendingImport && (
         <div style={{ marginTop: 14, padding: 14, background: "#1a1610", border: "1px solid #3a2f1f", borderRadius: 10 }}>
           <div style={{ fontSize: 13, color: "#c9b896", lineHeight: 1.5, marginBottom: 10 }}>
-            <strong style={{ color: "#EF4444" }}>Atenção:</strong> importar substitui {kind === "acervo" ? "seu acervo (biblioteca, treinos e agenda)" : "seu histórico (sessões e cargas)"} pelo conteúdo do backup{pendingImport.exportedAt ? " (de " + new Date(pendingImport.exportedAt).toLocaleDateString("pt-BR") + ")" : ""}. Não dá pra desfazer.
+            <strong style={{ color: ACCENT }}>Atenção:</strong> importar substitui {kind === "acervo" ? "seu acervo (biblioteca, treinos e agenda)" : "seu histórico (sessões e cargas)"} pelo conteúdo do backup{pendingImport.exportedAt ? " (de " + new Date(pendingImport.exportedAt).toLocaleDateString("pt-BR") + ")" : ""}. Não dá pra desfazer.
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setPendingImport(null)} style={{ flex: 1, padding: "10px", background: "transparent", color: "#9a9aa2", border: "1px solid #2E3A4D", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
-            <button onClick={confirmImport} style={{ flex: 1, padding: "10px", background: "#EF4444", color: onColor("#EF4444"), border: "none", borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Confirmar importação</button>
+            <button onClick={confirmImport} style={{ flex: 1, padding: "10px", background: ACCENT, color: onColor(ACCENT), border: "none", borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Confirmar importação</button>
           </div>
         </div>
       )}
@@ -2850,8 +2966,8 @@ const navBar = {
 const navBtn = (active) => ({
   flex: 1, padding: "12px 0 14px", background: "none", border: "none", cursor: "pointer",
   display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-  color: active ? "#EF4444" : "#5a5a62", fontSize: 11, fontWeight: 600,
-  borderTop: active ? "2px solid #EF4444" : "2px solid transparent", marginTop: -1,
+  color: active ? ACCENT : "#5a5a62", fontSize: 11, fontWeight: 600,
+  borderTop: active ? ("2px solid " + ACCENT) : "2px solid transparent", marginTop: -1,
 });
 const card = { background: "#161E2E", border: "1px solid #2A3344", borderRadius: 14 };
 const rowCard = { ...card, display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", width: "100%" };
@@ -2922,8 +3038,8 @@ const globalCss = `
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; }
   ::-webkit-scrollbar { width: 0; }
-  button:focus-visible { outline: 2px solid #EF4444; outline-offset: 2px; }
-  input:focus, textarea:focus, select:focus { border-color: #EF4444; }
+  button:focus-visible { outline: 2px solid var(--accent, #EF4444); outline-offset: 2px; }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent, #EF4444); }
   @keyframes ciclo7-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes ciclo7-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.86); opacity: 0.62; } }
   .ciclo7-dots::after { content: ""; animation: ciclo7-dots 1.4s steps(1) infinite; }
