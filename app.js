@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v21";
+const APP_VERSION = "v22";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -336,7 +336,9 @@ const Icon = {
   Book: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>),
   Moon: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>),
   Calendar: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>),
-  Play: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" {...p}><polygon points="6 4 20 12 6 20" /></svg>),
+  Play: (p) => (<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" {...p}><polygon points="6 4 20 12 6 20" /></svg>),
+  Pause: (p) => (<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" {...p}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>),
+  Restart: (p) => (<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>),
   Swap: (p) => (<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M16 3h5v5" /><path d="M21 3l-7 7" /><path d="M8 21H3v-5" /><path d="M3 21l7-7" /></svg>),
   Refresh: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /><path d="M3 21v-5h5" /></svg>),
   Download: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>),
@@ -344,6 +346,7 @@ const Icon = {
   Logout: (p) => (<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>),
   Grid: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>),
   User: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>),
+  Info: (p) => (<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>),
   Flame: (p) => (<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17c1.5 0 2.5-1 2.5-2.5 0-1-.5-2-1.5-3 0 0 .5 2-1 2.5 0-1.5-1-3-2-4-.5 2-2 3-2 5a4 4 0 0 0 8 0c0-2.5-2-4.5-2.5-6.5-1 1-1.5 2.5-2.5 3.5" /><path d="M12 2c1 3 4 5 4 9a4 4 0 0 1-8 0c0-1 .3-2 .7-2.8" /></svg>),
 };
 
@@ -473,7 +476,7 @@ function LoadingScreen({ label }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
         <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: 0.5, textTransform: "uppercase", color: "#f0f0f2" }}><span style={{ color: ACCENT }}>F</span>orge</span>
-        <span style={{ color: "#5a5a62", fontSize: 13, fontWeight: 600 }}>{label || "preparando seu treino"}<span className="ciclo7-dots"></span></span>
+        <span style={{ color: "#5a5a62", fontSize: 13, fontWeight: 600 }}>{label || "preparando martelo e bigorna"}<span className="ciclo7-dots"></span></span>
       </div>
     </div>
   );
@@ -651,7 +654,7 @@ function LoginScreen() {
 // ============================================================
 function ModuleChooser({ onChoose }) {
   const cards = [
-    { id: "treino", name: "Treino", desc: "Força e hipertrofia. Treinos, cargas e progresso.", color: "#EF4444", icon: <Icon.Dumbbell width={30} height={30} /> },
+    { id: "treino", name: "Treino", desc: "Treinos, cargas e progresso.", color: "#EF4444", icon: <Icon.Dumbbell width={30} height={30} /> },
     { id: "nutricao", name: "Nutrição", desc: "Alimentação, calorias e macros.", color: "#10B981", icon: <Icon.Flame width={30} height={30} /> },
   ];
   return (
@@ -718,6 +721,7 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
   const [birth, setBirth] = React.useState(p.birth || "");
   const [sex, setSex] = React.useState(p.sex || "");
   const [height, setHeight] = React.useState(p.height || "");
+  const [bodyFat, setBodyFat] = React.useState(p.bodyFat || "");
   const [goal, setGoal] = React.useState(p.goal || "");
   const [savedMsg, setSavedMsg] = React.useState(false);
   const [newWeight, setNewWeight] = React.useState("");
@@ -728,10 +732,10 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
   const [linkMsg, setLinkMsg] = React.useState("");
   const [linkErr, setLinkErr] = React.useState("");
 
-  const dirty = name !== (p.name || "") || birth !== (p.birth || "") || sex !== (p.sex || "") || height !== (p.height || "") || goal !== (p.goal || "");
+  const dirty = name !== (p.name || "") || birth !== (p.birth || "") || sex !== (p.sex || "") || height !== (p.height || "") || bodyFat !== (p.bodyFat || "") || goal !== (p.goal || "");
 
   const saveBasics = async () => {
-    await onSave({ name: name.trim(), birth, sex, height: height.replace(",", "."), goal });
+    await onSave({ name: name.trim(), birth, sex, height: height.replace(",", "."), bodyFat: String(bodyFat).replace(",", "."), goal });
     setSavedMsg(true);
     setTimeout(() => setSavedMsg(false), 2000);
   };
@@ -833,8 +837,8 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
         {linkErr && <div style={{ marginTop: 10, color: "#e36a5a", fontSize: 12.5, fontWeight: 600, lineHeight: 1.4 }}>{linkErr}</div>}
       </div>
 
-      {/* DADOS CORPORAIS */}
-      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>Dados corporais</div>
+      {/* DADOS PESSOAIS */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>Dados Pessoais</div>
       <div style={{ ...card, padding: 16, marginBottom: 14 }}>
         <label style={labelStyle}>Nome</label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Como quer ser chamado" style={{ ...textInput, marginBottom: 14 }} />
@@ -850,6 +854,9 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
             <input inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value.replace(/[^\d]/g, ""))} placeholder="180" style={{ ...textInput, textAlign: "center" }} />
           </div>
         </div>
+
+        <label style={labelStyle}>% de gordura corporal (opcional)</label>
+        <input inputMode="decimal" value={bodyFat} onChange={(e) => setBodyFat(e.target.value.replace(/[^\d,.]/g, ""))} placeholder="Ex.: 18,5" style={{ ...textInput, marginBottom: 14 }} />
 
         <label style={labelStyle}>Sexo</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
@@ -991,6 +998,9 @@ function App() {
   const [editingExercise, setEditingExercise] = useState(null);
   const [showSchedule, setShowSchedule] = useState(false);
   const [pendingFinish, setPendingFinish] = useState(null);
+  const [tempWorkout, setTempWorkout] = useState(null); // treino avulso montado na hora (não salvo)
+  const [quickBuilding, setQuickBuilding] = useState(false); // editor aberto em modo "montar na hora"
+  const [offerSaveTemp, setOfferSaveTemp] = useState(null); // treino temp aguardando decisão de salvar
   const [loaded, setLoaded] = useState(false);
 
   // ---------- auth ----------
@@ -1004,8 +1014,9 @@ function App() {
   // ---------- botão "voltar" do Android: fecha overlays em vez de sair do app ----------
   // pilha lógica de camadas abertas, da mais externa pra mais interna
   const closeTopLayer = useCallback(() => {
+    if (offerSaveTemp) { return true; } // decisão obrigatória; ignora voltar
     if (editingExercise) { setEditingExercise(null); return true; }
-    if (editingWorkout) { setEditingWorkout(null); return true; }
+    if (editingWorkout) { setEditingWorkout(null); setQuickBuilding(false); return true; }
     if (pendingFinish) { setPendingFinish(null); return true; }
     if (showSchedule) { setShowSchedule(false); return true; }
     if (activeWorkout) { setActiveWorkout(null); return true; }
@@ -1013,7 +1024,7 @@ function App() {
     if (module === "nutricao" && nutriTab !== "nhoje") { setNutriTab("nhoje"); return true; }
     if (module) { setModule(null); return true; } // sai do módulo de volta pra escolha
     return false;
-  }, [editingExercise, editingWorkout, pendingFinish, showSchedule, activeWorkout, module, tab, nutriTab]);
+  }, [offerSaveTemp, editingExercise, editingWorkout, pendingFinish, showSchedule, activeWorkout, module, tab, nutriTab]);
 
   const anyLayerOpen = !!(editingExercise || editingWorkout || pendingFinish || showSchedule || activeWorkout)
     || !!module
@@ -1136,13 +1147,19 @@ function App() {
   const todayKey = schedule[todayIdx] || null;
   const todayWorkout = todayKey ? workouts[todayKey] : null;
 
+  // busca treino na lista salva OU no treino temporário (montado na hora)
+  const getWorkout = useCallback((key) => {
+    if (tempWorkout && tempWorkout.key === key) return tempWorkout;
+    return workouts[key] || null;
+  }, [workouts, tempWorkout]);
+
   const effectiveId = useCallback((sessionKey, origId) => {
     const p = progress[sessionKey];
     return (p && p.subs && p.subs[origId]) || origId;
   }, [progress]);
 
   const sessionProgress = useCallback((key) => {
-    const w = workouts[key];
+    const w = getWorkout(key);
     if (!w) return { done: 0, total: 0, pct: 0, setsDone: 0, setsTotal: 0 };
     const p = progress[key];
     const total = w.items.length;
@@ -1156,7 +1173,7 @@ function App() {
       if (planned > 0 && c >= planned) done += 1;
     });
     return { done, total, pct: total ? done / total : 0, setsDone, setsTotal };
-  }, [progress, workouts]);
+  }, [progress, getWorkout]);
 
   const usageCount = useCallback((exId) => {
     return Object.values(workouts).reduce((acc, w) => acc + (w.items.some((it) => it.exId === exId) ? 1 : 0), 0);
@@ -1195,6 +1212,17 @@ function App() {
 
   const requestFinish = (sessionKey) => setPendingFinish(sessionKey);
 
+  // cronômetro controlado da sessão: timer = { accumSec, runningSince }
+  const setSessionTimer = async (sessionKey, timer) => {
+    const next = { ...progress };
+    const cur = next[sessionKey] ? { ...next[sessionKey] } : { startedAt: null, sets: {}, subs: {} };
+    if (!cur.startedAt) cur.startedAt = new Date().toISOString();
+    cur.timer = timer;
+    next[sessionKey] = cur;
+    setProgress(next);
+    await storeSet(KEY_PROGRESS, next);
+  };
+
   const resetSession = async (sessionKey) => {
     const next = { ...progress };
     delete next[sessionKey];
@@ -1204,11 +1232,18 @@ function App() {
   };
 
   const finalizeSession = async (sessionKey, note) => {
-    const w = workouts[sessionKey];
+    const w = getWorkout(sessionKey);
     const p = progress[sessionKey];
     const sp = sessionProgress(sessionKey);
     const startedAt = p && p.startedAt ? new Date(p.startedAt).getTime() : null;
-    const duration = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
+    // duração: prioriza o cronômetro controlado; fallback no tempo desde startedAt
+    let duration = null;
+    if (p && p.timer) {
+      const t = p.timer;
+      duration = Math.max(0, Math.round((t.accumSec || 0) + (t.runningSince ? (Date.now() - t.runningSince) / 1000 : 0)));
+    } else if (startedAt) {
+      duration = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+    }
     // volume por grupo muscular: primário conta 1 série, secundário 0.5
     const muscleSets = {};
     if (w) {
@@ -1247,7 +1282,24 @@ function App() {
     await storeSet(KEY_PROGRESS, next);
     setPendingFinish(null);
     setActiveWorkout(null);
+    // se era um treino montado na hora, pergunta se quer salvar na lista
+    if (tempWorkout && tempWorkout.key === sessionKey) {
+      setOfferSaveTemp(tempWorkout);
+    } else {
+      setTab("today");
+    }
+  };
+
+  // confirma salvar (ou descartar) o treino temporário após a sessão
+  const resolveSaveTemp = async (save) => {
+    const t = offerSaveTemp;
+    setOfferSaveTemp(null);
+    setTempWorkout(null);
     setTab("today");
+    if (save && t) {
+      const toSave = { ...t };
+      await saveWorkout(toSave);
+    }
   };
 
   const deleteHistoryEntry = async (id) => {
@@ -1315,6 +1367,15 @@ function App() {
     return arr && arr.length ? arr[arr.length - 1] : null;
   };
 
+  // último registro de cada série (set => registro), pra placeholders por série
+  const lastLogBySet = (exId) => {
+    const arr = logs[exId];
+    if (!arr || !arr.length) return {};
+    const out = {};
+    arr.forEach((r) => { if (r.set) out[r.set] = r; }); // último de cada série vence (ordem cronológica)
+    return out;
+  };
+
   const saveExercise = async (ex) => {
     const next = { ...lib, [ex.id]: ex };
     setLib(next);
@@ -1367,7 +1428,7 @@ function App() {
   }
 
   if (!loaded) {
-    return <LoadingScreen label="preparando seu treino" />;
+    return <LoadingScreen label="preparando martelo e bigorna" />;
   }
 
   return (
@@ -1402,10 +1463,10 @@ function App() {
           />
         ) : module === "nutricao" ? (
           <NutritionView tab={nutriTab} />
-        ) : activeWorkout && workouts[activeWorkout] ? (
+        ) : activeWorkout && getWorkout(activeWorkout) ? (
           <SessionDetail
             sessionKey={activeWorkout}
-            workout={workouts[activeWorkout]}
+            workout={getWorkout(activeWorkout)}
             lib={lib}
             progress={progress[activeWorkout]}
             sp={sessionProgress(activeWorkout)}
@@ -1414,10 +1475,12 @@ function App() {
             onBack={() => setActiveWorkout(null)}
             onFinish={() => requestFinish(activeWorkout)}
             onReset={() => resetSession(activeWorkout)}
-            onEdit={() => setEditingWorkout(workouts[activeWorkout])}
+            onSetTimer={(t) => setSessionTimer(activeWorkout, t)}
+            onEdit={() => { const w = getWorkout(activeWorkout); if (w && !w.temp) setEditingWorkout(w); }}
             onTimer={(s, a) => startTimer(s, a)}
             logSet={logSet}
             lastLog={lastLog}
+            lastLogBySet={lastLogBySet}
           />
         ) : tab === "today" ? (
           <TodayView
@@ -1429,6 +1492,7 @@ function App() {
             sessionProgress={sessionProgress}
             onOpen={(k) => setActiveWorkout(k)}
             onEditSchedule={() => setShowSchedule(true)}
+            onQuickBuild={() => { setQuickBuilding(true); setEditingWorkout("quick"); }}
           />
         ) : tab === "workouts" ? (
           <WorkoutsView
@@ -1492,12 +1556,25 @@ function App() {
 
       {editingWorkout && (
         <WorkoutEditor
-          initial={editingWorkout === "new" ? null : editingWorkout}
+          initial={editingWorkout === "new" ? null : (editingWorkout === "quick" ? null : editingWorkout)}
           lib={lib}
+          quickMode={quickBuilding}
           onSaveExercise={saveExercise}
-          onSave={async (w) => { await saveWorkout(w); setEditingWorkout(null); }}
+          onSave={async (w) => {
+            if (quickBuilding) {
+              // monta o treino na hora: não salva na lista, abre a sessão direto
+              const temp = { ...w, temp: true };
+              setTempWorkout(temp);
+              setEditingWorkout(null);
+              setQuickBuilding(false);
+              setActiveWorkout(temp.key);
+            } else {
+              await saveWorkout(w);
+              setEditingWorkout(null);
+            }
+          }}
           onDelete={async (key) => { await deleteWorkout(key); setEditingWorkout(null); setActiveWorkout(null); }}
-          onClose={() => setEditingWorkout(null)}
+          onClose={() => { setEditingWorkout(null); setQuickBuilding(false); }}
         />
       )}
 
@@ -1513,11 +1590,26 @@ function App() {
 
       {pendingFinish && (
         <NoteModal
-          accent={workouts[pendingFinish] ? workouts[pendingFinish].accent : ACCENT}
+          accent={getWorkout(pendingFinish) ? getWorkout(pendingFinish).accent : ACCENT}
           onSave={(note) => finalizeSession(pendingFinish, note)}
           onSkip={() => finalizeSession(pendingFinish, "")}
           onClose={() => setPendingFinish(null)}
         />
+      )}
+
+      {offerSaveTemp && (
+        <div style={overlay}>
+          <div style={{ ...panel, padding: 22 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Salvar este treino?</div>
+            <p style={{ color: "#9a9aa2", fontSize: 13.5, lineHeight: 1.5, margin: "0 0 18px" }}>
+              Você montou "<strong style={{ color: "#e0e0e4" }}>{offerSaveTemp.name}</strong>" na hora. A sessão já foi registrada no seu histórico. Quer guardar este treino na sua lista pra repetir depois?
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => resolveSaveTemp(false)} style={{ flex: 1, padding: "12px", background: "transparent", color: "#9a9aa2", border: "1px solid #2A3344", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Não, descartar</button>
+              <button onClick={() => resolveSaveTemp(true)} style={{ ...primaryBtn(ACCENT), flex: 1, justifyContent: "center" }}>Salvar na lista</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {timer && !timer.minimized && (
@@ -1577,7 +1669,7 @@ function NoteModal({ accent, onSave, onSkip, onClose }) {
 // ============================================================
 // TODAY VIEW
 // ============================================================
-function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress, onOpen, onEditSchedule }) {
+function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress, onOpen, onEditSchedule, onQuickBuild }) {
   const [pickOther, setPickOther] = useState(false);
   return (
     <div style={{ padding: "22px 18px 30px" }}>
@@ -1613,6 +1705,10 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
 
       <button onClick={() => setPickOther(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 12, background: "none", border: "1px dashed #3a3a42", borderRadius: 12, padding: "13px", color: "#b0b0b8", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
         <Icon.Swap /> {workout ? "Fazer outro treino hoje" : "Escolher um treino pra hoje"}
+      </button>
+
+      <button onClick={() => onQuickBuild && onQuickBuild()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 10, background: "none", border: "1px dashed #3a3a42", borderRadius: 12, padding: "13px", color: "#b0b0b8", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+        <Icon.Plus /> Montar treino na hora
       </button>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "28px 0 12px" }}>
@@ -1775,7 +1871,7 @@ function WorkoutsView({ workouts, onOpen, onEdit, onNew }) {
 // ============================================================
 // SESSION DETAIL
 // ============================================================
-function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onSub, onBack, onFinish, onReset, onEdit, onTimer, logSet, lastLog }) {
+function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onSub, onBack, onFinish, onReset, onEdit, onTimer, onSetTimer, logSet, lastLog, lastLogBySet }) {
   const subs = (progress && progress.subs) || {};
   const setCounts = (progress && progress.sets) || {};
   const startedAt = progress && progress.startedAt ? new Date(progress.startedAt).getTime() : null;
@@ -1784,14 +1880,20 @@ function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onS
   const [resetNonce, setResetNonce] = useState(0);
   const hasProgress = sp.setsDone > 0 || Object.keys(subs).length > 0;
 
-  // cronômetro da sessão
+  // cronômetro controlado: timer = { accumSec, runningSince }
+  const timer = (progress && progress.timer) || null;
+  const running = !!(timer && timer.runningSince);
   const [, forceTick] = useState(0);
   useEffect(() => {
-    if (!startedAt) return;
+    if (!running) return;
     const iv = setInterval(() => forceTick((x) => x + 1), 1000);
     return () => clearInterval(iv);
-  }, [startedAt]);
-  const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : null;
+  }, [running]);
+  const elapsed = timer ? Math.max(0, Math.floor((timer.accumSec || 0) + (timer.runningSince ? (Date.now() - timer.runningSince) / 1000 : 0))) : 0;
+
+  const startOrResume = () => onSetTimer({ accumSec: (timer && timer.accumSec) || 0, runningSince: Date.now() });
+  const pause = () => onSetTimer({ accumSec: elapsed, runningSince: null });
+  const resetTimer = () => onSetTimer({ accumSec: 0, runningSince: null });
 
   return (
     <div>
@@ -1805,11 +1907,19 @@ function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onS
               <span style={{ background: workout.accent, color: onColor(workout.accent), fontWeight: 800, fontSize: 11, padding: "2px 8px", borderRadius: 5 }}>{workout.tag}</span>
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{workout.name}</span>
             </div>
-            {elapsed != null && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3, color: "#8a8a92", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                <Icon.Timer width={12} height={12} /> {fmtClock(elapsed)}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, color: running ? "#e0e0e4" : "#8a8a92", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+                <Icon.Timer width={13} height={13} /> {fmtClock(elapsed)}
               </div>
-            )}
+              <button onClick={running ? pause : startOrResume} style={{ display: "flex", alignItems: "center", gap: 4, background: running ? "transparent" : workout.accent, color: running ? "#b0b0b8" : onColor(workout.accent), border: running ? "1px solid #2E3A4D" : "none", borderRadius: 7, padding: "5px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {running ? <React.Fragment><Icon.Pause /> Pausar</React.Fragment> : <React.Fragment><Icon.Play /> {elapsed > 0 ? "Retomar" : "Iniciar"}</React.Fragment>}
+              </button>
+              {!running && elapsed > 0 && (
+                <button onClick={resetTimer} style={{ display: "flex", alignItems: "center", gap: 4, background: "transparent", color: "#8a8a92", border: "1px solid #2E3A4D", borderRadius: 7, padding: "5px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  <Icon.Restart width={13} height={13} /> Reiniciar
+                </button>
+              )}
+            </div>
           </div>
           <button onClick={onEdit} style={iconBtn} aria-label="Editar treino"><Icon.Pencil /></button>
           <div style={{ position: "relative", width: 42, height: 42, flexShrink: 0 }}>
@@ -1854,6 +1964,7 @@ function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onS
                 onTimer={() => onTimer(parseRest(it.rest), workout.accent)}
                 logSet={logSet}
                 last={lastLog(effId)}
+                lastBySet={lastLogBySet(effId)}
               />
             );
           })}
@@ -1904,22 +2015,35 @@ function SessionDetail({ sessionKey, workout, lib, progress, sp, onSetCount, onS
 // ============================================================
 // EXERCISE CARD (com séries individuais)
 // ============================================================
-function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleAll, onSwap, onUndoSub, onTimer, logSet, last }) {
+function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleAll, onSwap, onUndoSub, onTimer, logSet, last, lastBySet }) {
   const [open, setOpen] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
-  const [weight, setWeight] = useState("");
-  const [reps, setReps] = useState("");
+  const [showNote, setShowNote] = useState(false);
+  // uma linha de inputs por série planejada
+  const [rows, setRows] = useState(() => Array.from({ length: ex.sets || 1 }, () => ({ weight: "", reps: "" })));
   const vid = ytId(ex.video);
   const checked = ex.sets > 0 && setsDone >= ex.sets;
 
-  const save = () => {
-    if (!weight) return;
-    const setNum = setsDone + 1;
-    if (setNum > ex.sets) return;
-    logSet(ex.id, { weight: parseNum(weight), reps: reps || ex.reps, set: setNum });
-    onSetChange(setNum); // marca a série como concluída
-    setWeight(""); setReps("");
-    if (setNum >= ex.sets) setOpen(false); // fecha só na última série
+  // mantém o nº de linhas em sincronia se ex.sets mudar
+  useEffect(() => {
+    setRows((prev) => {
+      const n = ex.sets || 1;
+      if (prev.length === n) return prev;
+      const next = prev.slice(0, n);
+      while (next.length < n) next.push({ weight: "", reps: "" });
+      return next;
+    });
+  }, [ex.sets]);
+
+  const setRow = (i, patch) => setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  // registra a carga de uma série específica e marca como concluída
+  const saveSet = (i) => {
+    const r = rows[i];
+    if (!r.weight) return;
+    logSet(ex.id, { weight: parseNum(r.weight), reps: r.reps || ex.reps, set: i + 1 });
+    if (i + 1 > setsDone) onSetChange(i + 1); // marca até esta série
+    if (onTimer && ex.rest) onTimer(ex.rest, accent); // dispara descanso
   };
 
   const tapSet = (i) => {
@@ -1993,18 +2117,31 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
             </button>
           </div>
 
-          {(ex.warn || ex.note) ? (
-            <div style={{ display: "flex", gap: 7, alignItems: "flex-start", marginTop: 10, padding: "8px 10px", borderRadius: 8, background: ex.warn ? "#1a1410" : "#15151a", border: ex.warn ? "1px solid #3a2f1f" : "1px solid #22222a" }}>
-              {ex.warn ? <span style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span> : null}
-              <span style={{ fontSize: 12.5, color: ex.warn ? "#c9b896" : "#9a9aa2", lineHeight: 1.45 }}>{ex.warn || ex.note}</span>
+          {ex.warn ? (
+            <div style={{ display: "flex", gap: 7, alignItems: "flex-start", marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#1a1410", border: "1px solid #3a2f1f" }}>
+              <span style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }}><Icon.Warn /></span>
+              <span style={{ fontSize: 12.5, color: "#c9b896", lineHeight: 1.45 }}>{ex.warn}</span>
+            </div>
+          ) : null}
+
+          {ex.note ? (
+            <div style={{ marginTop: 10 }}>
+              <button onClick={() => setShowNote((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#8a8a92", fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+                <Icon.Info /> {showNote ? "Ocultar dica" : "Ver dica"}
+              </button>
+              {showNote && (
+                <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#15151a", border: "1px solid #22222a" }}>
+                  <span style={{ fontSize: 12.5, color: "#9a9aa2", lineHeight: 1.45 }}>{ex.note}</span>
+                </div>
+              )}
             </div>
           ) : null}
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 11 }}>
             <button onClick={() => setOpen((o) => !o)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: accent, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0 }}>
-              <Icon.Plus /> Registrar carga
+              <span style={{ display: "flex", transition: "transform .15s", transform: open ? "rotate(45deg)" : "none" }}><Icon.Plus /></span> {open ? "Recolher cargas" : "Registrar carga"}
             </button>
-            {last && (
+            {last && !open && (
               <span style={{ fontSize: 12, color: "#7a7a82" }}>
                 Última: <strong style={{ color: "#b0b0b8" }}>{last.weight}kg × {last.reps}{last.set ? " · S" + last.set : ""}</strong>
               </span>
@@ -2012,12 +2149,22 @@ function ExerciseCard({ ex, idx, accent, setsDone, isSub, onSetChange, onToggleA
           </div>
 
           {open && (
-            <div style={{ display: "flex", gap: 8, marginTop: 11, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: accent, background: "#1B2536", border: "1px solid #2E3A4D", borderRadius: 6, padding: "5px 8px" }}>S{Math.min(setsDone + 1, ex.sets)}</span>
-              <input inputMode="decimal" placeholder={last ? String(last.weight) : "kg"} value={weight} onChange={(e) => setWeight(e.target.value)} style={inputStyle} />
-              <span style={{ color: "#5a5a62" }}>×</span>
-              <input inputMode="numeric" placeholder="reps" value={reps} onChange={(e) => setReps(e.target.value)} style={inputStyle} />
-              <button onClick={save} style={{ ...primaryBtn(accent), padding: "9px 16px", fontSize: 13 }}>Salvar</button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 11 }}>
+              {rows.map((r, i) => {
+                const doneSet = i < setsDone;
+                const lastSet = lastBySet && lastBySet[i + 1];
+                return (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, width: 30, textAlign: "center", flexShrink: 0, color: doneSet ? onColor(accent) : accent, background: doneSet ? accent : "#1B2536", border: "1px solid " + (doneSet ? accent : "#2E3A4D"), borderRadius: 6, padding: "6px 0" }}>S{i + 1}</span>
+                    <input inputMode="decimal" placeholder={lastSet ? String(lastSet.weight) : "kg"} value={r.weight} onChange={(e) => setRow(i, { weight: e.target.value })} style={{ ...inputStyle, flex: 1, width: "auto" }} />
+                    <span style={{ color: "#5a5a62" }}>×</span>
+                    <input inputMode="numeric" placeholder={lastSet ? String(lastSet.reps) : (ex.reps || "reps")} value={r.reps} onChange={(e) => setRow(i, { reps: e.target.value })} style={{ ...inputStyle, width: 56 }} />
+                    <button onClick={() => saveSet(i)} style={{ ...primaryBtn(accent), padding: "9px 0", width: 44, justifyContent: "center", opacity: r.weight ? 1 : 0.5 }} aria-label={"Salvar série " + (i + 1)}>
+                      {doneSet ? <Icon.Check width={15} height={15} /> : <Icon.Plus />}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -2064,9 +2211,9 @@ const Stat = ({ label, value, accent }) => (
 // ============================================================
 // WORKOUT EDITOR
 // ============================================================
-function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose }) {
+function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose, quickMode }) {
   const isNew = !initial;
-  const [draft, setDraft] = useState(() => initial ? JSON.parse(JSON.stringify(initial)) : { key: uid("w_"), name: "", tag: "", accent: PALETTE[0], headerWarn: "", items: [] });
+  const [draft, setDraft] = useState(() => initial ? JSON.parse(JSON.stringify(initial)) : { key: uid("w_"), name: quickMode ? "Treino de hoje" : "", tag: quickMode ? "HOJE" : "", accent: PALETTE[0], headerWarn: "", items: [] });
   const [picking, setPicking] = useState(false);
   const [creatingEx, setCreatingEx] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -2177,7 +2324,7 @@ function WorkoutEditor({ initial, lib, onSaveExercise, onSave, onDelete, onClose
         {error && <div style={{ color: "#e36a5a", fontSize: 13, fontWeight: 600, marginTop: 14 }}>{error}</div>}
 
         <button onClick={save} style={{ ...primaryBtn(draft.accent), width: "100%", marginTop: 20, justifyContent: "center" }}>
-          <Icon.Check /> Salvar treino
+          <Icon.Check /> {quickMode ? "Começar treino" : "Salvar treino"}
         </button>
 
         {!isNew && onDelete && (
