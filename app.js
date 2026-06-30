@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v24";
+const APP_VERSION = "v25";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -56,6 +56,91 @@ const parseNum = (v) => {
   if (v == null) return NaN;
   return parseFloat(String(v).replace(",", "."));
 };
+
+// ============================================================
+// NUTRIÇÃO — motor de cálculo (ver REGRAS_NUTRICAO_FORGE.md)
+// ============================================================
+// Níveis de atividade (fator multiplicador da TMB)
+const ACTIVITY_LEVELS = [
+  { id: "sedentario", label: "Sedentário", desc: "Pouco ou nenhum exercício", factor: 1.2 },
+  { id: "leve", label: "Levemente ativo", desc: "Exercício leve 1–3×/semana", factor: 1.375 },
+  { id: "moderado", label: "Moderadamente ativo", desc: "Exercício moderado 3–5×/semana", factor: 1.55 },
+  { id: "muito", label: "Muito ativo", desc: "Exercício intenso 6–7×/semana", factor: 1.725 },
+  { id: "extremo", label: "Extremamente ativo", desc: "Muito intenso / trabalho físico / 2×/dia", factor: 1.9 },
+];
+const activityFactor = (id) => { const a = ACTIVITY_LEVELS.find((x) => x.id === id); return a ? a.factor : null; };
+
+// cores fixas dos macronutrientes (identidade da família Forge/Fuel)
+const MACRO_COLORS = { protein: "#E5645E", carb: "#E0A23B", fat: "#4C9BD6" };
+
+// TMB pela equação de Mifflin-St Jeor (1990)
+const mifflinStJeor = (kg, cm, age, sex) => {
+  const base = 10 * kg + 6.25 * cm - 5 * age;
+  // constante por sexo: homem +5, mulher -161, outro/n/d média (-78)
+  const c = sex === "m" ? 5 : sex === "f" ? -161 : -78;
+  return base + c;
+};
+
+// ajuste calórico por objetivo
+const GOAL_ADJ = { manter: 0, perder: -0.20, massa: 0.10 };
+// proteína por kg conforme objetivo (faixas ISSN)
+const PROTEIN_PER_KG = { manter: 1.6, massa: 1.8, perder: 2.2 };
+
+// calcula metas de calorias + macros a partir do perfil
+// retorna null se faltar dado essencial (peso, altura, idade, sexo, atividade, objetivo)
+const computeTargets = (profile) => {
+  if (!profile) return null;
+  const weights = profile.weights || [];
+  const kg = weights.length ? weights[weights.length - 1].kg : null;
+  const cm = parseNum(profile.height);
+  const sex = profile.sex || "";
+  const activity = profile.activity || "";
+  const goal = profile.goal || "";
+  // idade a partir do nascimento
+  let age = null;
+  if (profile.birth) {
+    const b = new Date(profile.birth);
+    if (!isNaN(b)) {
+      const now = new Date();
+      age = now.getFullYear() - b.getFullYear();
+      const mo = now.getMonth() - b.getMonth();
+      if (mo < 0 || (mo === 0 && now.getDate() < b.getDate())) age--;
+    }
+  }
+  const missing = [];
+  if (!kg) missing.push("peso");
+  if (!cm || isNaN(cm)) missing.push("altura");
+  if (age == null) missing.push("nascimento");
+  if (!sex) missing.push("sexo");
+  if (!activity) missing.push("nível de atividade");
+  if (!goal) missing.push("objetivo");
+  if (missing.length) return { ok: false, missing };
+
+  const bmr = mifflinStJeor(kg, cm, age, sex);
+  const tdee = bmr * activityFactor(activity);
+  let kcal = tdee * (1 + (GOAL_ADJ[goal] || 0));
+  kcal = Math.max(kcal, bmr); // piso de segurança: nunca abaixo da TMB
+  kcal = Math.round(kcal);
+
+  // proteína (por kg)
+  const proteinG = Math.round((PROTEIN_PER_KG[goal] || 1.6) * kg);
+  const proteinKcal = proteinG * 4;
+  // gordura (AMDR: centro 27,5%, piso 20%)
+  let fatKcal = Math.max(0.275 * kcal, 0.20 * kcal);
+  // carboidrato (restante)
+  let carbKcal = kcal - proteinKcal - fatKcal;
+  // correção: nunca negativo (reduz gordura até piso 20%, depois fixa carbo mínimo)
+  if (carbKcal < 0) {
+    fatKcal = 0.20 * kcal;
+    carbKcal = kcal - proteinKcal - fatKcal;
+    if (carbKcal < 0) carbKcal = 0.05 * kcal; // piso mínimo de funcionamento
+  }
+  const fatG = Math.round(fatKcal / 9);
+  const carbG = Math.round(Math.max(carbKcal, 0) / 4);
+
+  return { ok: true, bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, proteinG, fatG, carbG };
+};
+
 const ytId = (url) => {
   if (!url) return null;
   const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
@@ -703,7 +788,7 @@ function ModuleHeader({ eyebrow, title, right }) {
   );
 }
 
-function NutritionView({ tab }) {
+function NutritionView({ tab, profile }) {
   const screens = {
     nhoje: { title: "Hoje", desc: "Aqui vai aparecer o resumo do dia: calorias, macros e refeições registradas." },
     nsemana: { title: "Semana", desc: "Aqui vai aparecer a visão semanal: adesão à dieta e médias por dia." },
@@ -714,6 +799,12 @@ function NutritionView({ tab }) {
   return (
     <div style={{ padding: "22px 18px 30px" }}>
       <ModuleHeader eyebrow="Nutrição" title={s.title} />
+      {tab === "nhoje" && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>Suas metas do dia</div>
+          <TargetsCard profile={profile} />
+        </div>
+      )}
       <div style={{ ...card, padding: 28, textAlign: "center" }}>
         <span style={{ color: "#10B981", display: "inline-flex", marginBottom: 12 }}><Icon.Flame width={40} height={40} /></span>
         <div style={{ fontSize: 14, color: "#8a8a92", lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>{s.desc}</div>
@@ -726,6 +817,59 @@ function NutritionView({ tab }) {
 // ============================================================
 // PROFILE VIEW (Conta, Dados corporais, Objetivo)
 // ============================================================
+// card de metas nutricionais calculadas (usado no Perfil e na Nutrição)
+function TargetsCard({ profile, showHint }) {
+  const t = computeTargets(profile);
+  if (!t) return null;
+  if (!t.ok) {
+    return (
+      <div style={{ ...card, padding: 18, textAlign: "center" }}>
+        <div style={{ color: "#8a8a92", fontSize: 13.5, lineHeight: 1.5 }}>
+          Pra calcular suas metas, complete no Perfil: <strong style={{ color: "#b0b0b8" }}>{t.missing.join(", ")}</strong>.
+        </div>
+      </div>
+    );
+  }
+  const macros = [
+    { key: "protein", label: "Proteína", g: t.proteinG, kcal: t.proteinG * 4 },
+    { key: "carb", label: "Carboidrato", g: t.carbG, kcal: t.carbG * 4 },
+    { key: "fat", label: "Gordura", g: t.fatG, kcal: t.fatG * 9 },
+  ];
+  const totalMacroKcal = macros.reduce((s, m) => s + m.kcal, 0) || 1;
+  return (
+    <div style={{ ...card, padding: 18 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 38, fontWeight: 700, lineHeight: 1 }}>{t.kcal}</span>
+        <span style={{ fontSize: 14, color: "#8a8a92", fontWeight: 600 }}>kcal / dia</span>
+      </div>
+      <div style={{ fontSize: 11.5, color: "#6a6a72", marginBottom: 14 }}>TMB {t.bmr} · gasto estimado {t.tdee} kcal</div>
+
+      {/* barra de proporção dos macros */}
+      <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 14 }}>
+        {macros.map((m) => (
+          <div key={m.key} style={{ width: (m.kcal / totalMacroKcal * 100) + "%", background: MACRO_COLORS[m.key] }} />
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        {macros.map((m) => (
+          <div key={m.key} style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: MACRO_COLORS[m.key], margin: "0 auto 5px" }} />
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{m.g}<span style={{ fontSize: 12, color: "#7a7a82" }}>g</span></div>
+            <div style={{ fontSize: 11.5, color: "#8a8a92", marginTop: 2 }}>{m.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {showHint && (
+        <div style={{ fontSize: 11.5, color: "#5a5a62", lineHeight: 1.5, marginTop: 14, paddingTop: 12, borderTop: "1px solid #1c1c22" }}>
+          Estimativa por Mifflin-St Jeor, fatores de atividade e faixas da ISSN/AMDR. São valores de referência, não prescrição — para um plano individual, procure um profissional.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, onLinkPassword, onLinkGoogle, appVersion }) {
   const p = profile || {};
   const prefs = p.prefs || { accent: DEFAULT_ACCENT, unit: "kg" };
@@ -734,6 +878,7 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
   const [sex, setSex] = React.useState(p.sex || "");
   const [height, setHeight] = React.useState(p.height || "");
   const [bodyFat, setBodyFat] = React.useState(p.bodyFat || "");
+  const [activity, setActivity] = React.useState(p.activity || "");
   const [goal, setGoal] = React.useState(p.goal || "");
   const [savedMsg, setSavedMsg] = React.useState(false);
   const [newWeight, setNewWeight] = React.useState("");
@@ -744,10 +889,10 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
   const [linkMsg, setLinkMsg] = React.useState("");
   const [linkErr, setLinkErr] = React.useState("");
 
-  const dirty = name !== (p.name || "") || birth !== (p.birth || "") || sex !== (p.sex || "") || height !== (p.height || "") || bodyFat !== (p.bodyFat || "") || goal !== (p.goal || "");
+  const dirty = name !== (p.name || "") || birth !== (p.birth || "") || sex !== (p.sex || "") || height !== (p.height || "") || bodyFat !== (p.bodyFat || "") || activity !== (p.activity || "") || goal !== (p.goal || "");
 
   const saveBasics = async () => {
-    await onSave({ name: name.trim(), birth, sex, height: height.replace(",", "."), bodyFat: String(bodyFat).replace(",", "."), goal });
+    await onSave({ name: name.trim(), birth, sex, height: height.replace(",", "."), bodyFat: String(bodyFat).replace(",", "."), activity, goal });
     setSavedMsg(true);
     setTimeout(() => setSavedMsg(false), 2000);
   };
@@ -878,6 +1023,22 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
         </div>
       </div>
 
+      {/* NÍVEL DE ATIVIDADE */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "8px 0 10px" }}>Nível de atividade</div>
+      <div style={{ ...card, padding: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {ACTIVITY_LEVELS.map((a) => (
+            <button key={a.id} onClick={() => setActivity(a.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, cursor: "pointer", border: "1.5px solid " + (activity === a.id ? ACCENT : "#2E3A4D"), background: activity === a.id ? (ACCENT + "15") : "transparent", textAlign: "left" }}>
+              <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, border: "2px solid " + (activity === a.id ? ACCENT : "#3a3a42"), background: activity === a.id ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{activity === a.id ? <Icon.Check width={11} height={11} /> : null}</span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: activity === a.id ? "#f0f0f2" : "#b0b0b8" }}>{a.label}</span>
+                <span style={{ display: "block", fontSize: 11.5, color: "#7a7a82", marginTop: 1 }}>{a.desc}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* OBJETIVO */}
       <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "8px 0 10px" }}>Objetivo</div>
       <div style={{ ...card, padding: 16, marginBottom: 14 }}>
@@ -894,6 +1055,10 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
       <button onClick={saveBasics} disabled={!dirty} style={{ ...primaryBtn(ACCENT), width: "100%", justifyContent: "center", opacity: dirty ? 1 : 0.5, marginBottom: 8 }}>
         <Icon.Check /> {savedMsg ? "Salvo!" : "Salvar dados"}
       </button>
+
+      {/* METAS NUTRICIONAIS (calculadas) */}
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "22px 0 10px" }}>Metas nutricionais</div>
+      <TargetsCard profile={{ ...p, height: height.replace(",", "."), sex, birth, activity, goal, weights: p.weights }} showHint />
 
       {/* PREFERÊNCIAS */}
       <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, margin: "22px 0 10px" }}>Preferências</div>
@@ -994,7 +1159,7 @@ function App() {
   const [logs, setLogs] = useState({});
   const [progress, setProgress] = useState({});
   const [history, setHistory] = useState([]);
-  const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
+  const [profile, setProfile] = useState({ name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
   const accentPref = (profile && profile.prefs && profile.prefs.accent) || DEFAULT_ACCENT;
   setAccentVar(accentPref); // síncrono: garante que estilos no render usem o acento certo
   useEffect(() => {
@@ -1088,7 +1253,7 @@ function App() {
       const lg = await storeGet(KEY_LOGS, {});
       const pr = await storeGet(KEY_PROGRESS, {});
       const hs = await storeGet(KEY_HISTORY, []);
-      const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
+      const prof = await storeGet(KEY_PROFILE, { name: "", birth: "", sex: "", height: "", activity: "", goal: "", weights: [], prefs: { accent: DEFAULT_ACCENT, unit: "kg" } });
       let lb = await storeGet(KEY_LIBRARY, null);
       let wk = await storeGet(KEY_WORKOUTS, null);
       let sc = await storeGet(KEY_SCHEDULE, null);
@@ -1474,7 +1639,7 @@ function App() {
             appVersion={APP_VERSION}
           />
         ) : module === "nutricao" ? (
-          <NutritionView tab={nutriTab} />
+          <NutritionView tab={nutriTab} profile={profile} />
         ) : activeWorkout && getWorkout(activeWorkout) ? (
           <SessionDetail
             sessionKey={activeWorkout}
