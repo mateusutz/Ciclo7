@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v23";
+const APP_VERSION = "v24";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -690,6 +690,19 @@ function ModuleChooser({ onChoose }) {
 // ============================================================
 // NUTRITION VIEW (esqueleto navegável — sem conteúdo ainda)
 // ============================================================
+// cabeçalho padrão dos módulos: eyebrow pequeno (cinza) + título grande
+function ModuleHeader({ eyebrow, title, right }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>{eyebrow}</div>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 700, textTransform: "uppercase", lineHeight: 1.05 }}>{title}</div>
+      </div>
+      {right || null}
+    </div>
+  );
+}
+
 function NutritionView({ tab }) {
   const screens = {
     nhoje: { title: "Hoje", desc: "Aqui vai aparecer o resumo do dia: calorias, macros e refeições registradas." },
@@ -700,8 +713,7 @@ function NutritionView({ tab }) {
   const s = screens[tab] || screens.nhoje;
   return (
     <div style={{ padding: "22px 18px 30px" }}>
-      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>Nutrição</div>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 700, textTransform: "uppercase", marginBottom: 18, lineHeight: 1.05 }}>{s.title}</div>
+      <ModuleHeader eyebrow="Nutrição" title={s.title} />
       <div style={{ ...card, padding: 28, textAlign: "center" }}>
         <span style={{ color: "#10B981", display: "inline-flex", marginBottom: 12 }}><Icon.Flame width={40} height={40} /></span>
         <div style={{ fontSize: 14, color: "#8a8a92", lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>{s.desc}</div>
@@ -1673,7 +1685,8 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
   const [pickOther, setPickOther] = useState(false);
   return (
     <div style={{ padding: "22px 18px 30px" }}>
-      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4 }}>{DAYS[todayIdx]} · treino de hoje</div>
+      <ModuleHeader eyebrow="Treino" title="Hoje" />
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 4, marginTop: -8 }}>{DAYS[todayIdx]} · treino de hoje</div>
 
       {workout ? (
         <div style={{ ...card, marginTop: 14, padding: 22, position: "relative", overflow: "hidden" }}>
@@ -1839,12 +1852,11 @@ function WorkoutsView({ workouts, onOpen, onEdit, onNew }) {
   const list = Object.values(workouts);
   return (
     <div style={{ padding: "22px 18px 30px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Seus treinos</div>
-        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: ACCENT, border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+      <ModuleHeader eyebrow="Treino" title="Treinos" right={
+        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: ACCENT, border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
           <Icon.Plus /> Novo treino
         </button>
-      </div>
+      } />
       <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
         {list.map((w) => (
           <div key={w.key} style={{ ...card, padding: 0, display: "flex", alignItems: "stretch", overflow: "hidden" }}>
@@ -2607,12 +2619,11 @@ function LibraryView({ lib, usageCount, onEdit, onNew }) {
 
   return (
     <div style={{ padding: "22px 18px 30px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700 }}>Biblioteca · {Object.keys(lib).length}</div>
-        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: ACCENT, border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+      <ModuleHeader eyebrow={"Treino · " + Object.keys(lib).length + " exercícios"} title="Biblioteca" right={
+        <button onClick={onNew} style={{ display: "flex", alignItems: "center", gap: 6, background: ACCENT, border: "none", borderRadius: 8, padding: "8px 14px", color: "#FFFFFF", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
           <Icon.Plus /> Novo
         </button>
-      </div>
+      } />
 
       <div style={{ position: "relative", marginBottom: 12 }}>
         <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#5a5a62", display: "flex" }}><Icon.Search /></span>
@@ -2755,6 +2766,7 @@ function ProgressView({ logs, lib, workouts, history, onDeleteSession, onDeleteL
 
   return (
     <div style={{ padding: "22px 18px 30px" }}>
+      <ModuleHeader eyebrow="Treino" title="Progresso" />
       <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 18, WebkitOverflowScrolling: "touch" }}>
         {PERIODS.map((p) => (
           <button key={p.id} onClick={() => setPeriod(p.id)} style={filterChip(period === p.id, ACCENT)}>{p.label}</button>
