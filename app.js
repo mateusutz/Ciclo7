@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v30";
+const APP_VERSION = "v31";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -1640,6 +1640,8 @@ function MacroMeter({ label, color, val, target }) {
 function HojeView({ profile, plan, foods, meals, planAddMeal, planAddCustomMeal, planReplaceMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay, onSaveModel }) {
   const todayIdx = new Date().getDay(); // 0=domingo .. 6=sábado
   const [planning, setPlanning] = React.useState(false);
+  const [expanded, setExpanded] = React.useState({}); // copyId -> bool
+  const toggleExp = (id) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
   const day = (plan && plan[todayIdx]) || emptyDay();
   const totals = dayTotals(day, foods);
   const target = computeTargets(profile);
@@ -1662,18 +1664,18 @@ function HojeView({ profile, plan, foods, meals, planAddMeal, planAddCustomMeal,
           <div style={{ color: "#8a8a92", fontSize: 13.5, lineHeight: 1.5 }}>Pra ver seu progresso do dia, complete seus dados no Perfil: <strong style={{ color: "#b0b0b8" }}>{target ? target.missing.join(", ") : "dados"}</strong>.</div>
         </div>
       ) : (
-        <div style={{ ...card, padding: 22, marginBottom: 16 }}>
-          {/* anel de calorias */}
-          <div style={{ position: "relative", width: 160, height: 160, margin: "0 auto 18px" }}>
-            <Ring pct={kcalPct} accent={totals.kcal > target.kcal ? "#E0A23B" : NG} size={160} stroke={13} />
+        <div style={{ ...card, padding: 20, marginBottom: 16, display: "flex", alignItems: "center", gap: 18 }}>
+          {/* anel de calorias (esquerda) */}
+          <div style={{ position: "relative", width: 130, height: 130, flexShrink: 0 }}>
+            <Ring pct={kcalPct} accent={totals.kcal > target.kcal ? "#E0A23B" : NG} size={130} stroke={11} />
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 42, fontWeight: 700, lineHeight: 1 }}>{totals.kcal}</span>
-              <span style={{ fontSize: 12, color: "#8a8a92", fontWeight: 600 }}>de {target.kcal} kcal</span>
-              <span style={{ fontSize: 11.5, color: remaining >= 0 ? NG : "#E0A23B", fontWeight: 700, marginTop: 3 }}>{remaining >= 0 ? remaining + " restantes" : Math.abs(remaining) + " acima"}</span>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 34, fontWeight: 700, lineHeight: 1 }}>{totals.kcal}</span>
+              <span style={{ fontSize: 10.5, color: "#8a8a92", fontWeight: 600 }}>de {target.kcal}</span>
+              <span style={{ fontSize: 10.5, color: remaining >= 0 ? NG : "#E0A23B", fontWeight: 700, marginTop: 2 }}>{remaining >= 0 ? remaining + " rest." : Math.abs(remaining) + " acima"}</span>
             </div>
           </div>
-          {/* macros */}
-          <div style={{ display: "flex", gap: 14 }}>
+          {/* macros empilhados (direita) */}
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
             <MacroMeter label="Proteína" color={MACRO_COLORS.protein} val={totals.p} target={target.proteinG} />
             <MacroMeter label="Carbo" color={MACRO_COLORS.carb} val={totals.c} target={target.carbG} />
             <MacroMeter label="Gordura" color={MACRO_COLORS.fat} val={totals.f} target={target.fatG} />
@@ -1697,12 +1699,32 @@ function HojeView({ profile, plan, foods, meals, planAddMeal, planAddCustomMeal,
               <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#8a8a92", fontWeight: 700, marginBottom: 10 }}>{m.name}</div>
               {list.map((meal) => {
                 const t = mealTotals(meal, foods);
+                const isExp = expanded[meal.id];
                 return (
-                  <div key={meal.id} style={{ ...card, padding: "13px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#f0f0f2" }}>{meal.name}</div>
-                      <div style={{ fontSize: 12, color: "#8a8a92", marginTop: 2 }}><span style={{ color: NG, fontWeight: 700 }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
-                    </div>
+                  <div key={meal.id} style={{ ...card, padding: 0, marginBottom: 8, overflow: "hidden" }}>
+                    <button onClick={() => toggleExp(meal.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, color: "#f0f0f2" }}>{meal.name}</div>
+                        <div style={{ fontSize: 12, color: "#8a8a92", marginTop: 2 }}><span style={{ color: NG, fontWeight: 700 }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
+                      </div>
+                      <span style={{ color: "#8a8a92", display: "flex", flexShrink: 0 }}>{isExp ? <Icon.Up /> : <Icon.Down />}</span>
+                    </button>
+                    {isExp && (
+                      <div style={{ padding: "0 16px 14px", borderTop: "1px solid #1c1c22" }}>
+                        {meal.items.map((it, i) => {
+                          const food = foods[it.foodId];
+                          if (!food) return null;
+                          const factor = (it.g || 0) / 100;
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, paddingTop: i === 0 ? 12 : 8 }}>
+                              <span style={{ fontSize: 14, color: "#e0e0e4", flex: 1, minWidth: 0 }}>{food.name}</span>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f2", flexShrink: 0 }}>{it.g}<span style={{ fontSize: 11, color: "#7a7a82", fontWeight: 600 }}> g</span></span>
+                              <span style={{ fontSize: 11.5, color: "#7a7a82", flexShrink: 0, width: 52, textAlign: "right" }}>{Math.round((food.kcal || 0) * factor)} kcal</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -4419,7 +4441,7 @@ const iconBtn = {
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; }
+  body { margin: 0; color: #f0f0f2; background: #0B0F19; }
   ::-webkit-scrollbar { width: 0; }
   button:focus-visible { outline: 2px solid var(--accent, #EF4444); outline-offset: 2px; }
   input:focus, textarea:focus, select:focus { border-color: var(--accent, #EF4444); }
