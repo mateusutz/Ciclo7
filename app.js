@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v32";
+const APP_VERSION = "v33";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -204,13 +204,33 @@ const dayTotals = (day, foods) => {
   return { kcal, p, c, f };
 };
 
+// ---- porções / medidas naturais ----
+// converte quantidade+unidade em gramas (unit "g" ou label de uma porção do alimento)
+const qtyToGrams = (food, qty, unit) => {
+  const n = parseNum(qty);
+  if (isNaN(n)) return 0;
+  if (!unit || unit === "g") return n;
+  const port = (food && food.portions || []).find((p) => p.label === unit);
+  return port ? n * (port.g || 0) : n;
+};
+// texto de exibição da quantidade de um item (ex.: "2 fatias" ou "150 g")
+const fmtQty = (item, food) => {
+  if (item && item.unit && item.unit !== "g") {
+    const q = item.qty != null ? item.qty : "";
+    const label = item.unit;
+    const plural = (parseNum(q) > 1 && !/s$/.test(label)) ? label + "s" : label;
+    return q + " " + plural;
+  }
+  return (item && item.g != null ? item.g : 0) + " g";
+};
+
 // cria uma cópia INDEPENDENTE de uma refeição-modelo para uso num dia
 // (a regra central: editar a cópia não afeta o modelo nem outros dias)
 const mealCopyFromModel = (model) => ({
   id: uid("dm_"),
   name: model.name,
   fromMealId: model.id, // rótulo de origem; os dados abaixo são independentes
-  items: (model.items || []).map((it) => ({ foodId: it.foodId, g: it.g })),
+  items: (model.items || []).map((it) => ({ foodId: it.foodId, g: it.g, qty: it.qty, unit: it.unit })),
 });
 
 // Refeições-modelo de exemplo (para teste). Referenciam ids do FOOD_SEED.
@@ -957,6 +977,35 @@ function fmtG(g) {
 }
 
 // formulário de cadastro/edição de alimento
+// entrada de quantidade com unidade: número + seletor (g ou porções do alimento)
+function QtyInput({ food, item, onChange, compact }) {
+  const portions = (food && food.portions) || [];
+  const unit = (item && item.unit) || "g";
+  // qty exibido: se tem unit de porção, usa item.qty; senão os gramas
+  const shownQty = (unit !== "g" && item && item.qty != null) ? item.qty
+    : (unit === "g" ? (item && item.g != null ? item.g : "") : (item && item.qty != null ? item.qty : ""));
+
+  const emit = (qty, u) => {
+    const grams = qtyToGrams(food, qty, u);
+    onChange({ qty: parseNum(qty), unit: u, g: Math.round(grams * 10) / 10 });
+  };
+
+  const inputW = compact ? 56 : 64;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+      <input inputMode="decimal" value={shownQty} onChange={(e) => emit(e.target.value, unit)} style={{ ...textInput, width: inputW, textAlign: "center", padding: compact ? "7px 6px" : undefined }} />
+      {portions.length > 0 ? (
+        <select value={unit} onChange={(e) => emit(shownQty, e.target.value)} style={{ ...textInput, width: "auto", padding: "8px 6px", cursor: "pointer", color: "#f0f0f2" }}>
+          <option value="g">g</option>
+          {portions.map((p) => <option key={p.label} value={p.label}>{p.label}</option>)}
+        </select>
+      ) : (
+        <span style={{ fontSize: 12, color: "#7a7a82" }}>g</span>
+      )}
+    </div>
+  );
+}
+
 function FoodForm({ initial, onSave, onDelete, onClose, accent }) {
   const isNew = !initial;
   const [name, setName] = React.useState(initial ? initial.name : "");
@@ -1137,11 +1186,18 @@ function MealForm({ initial, foods, onSave, onDelete, onClose, dayMode, momentLa
   const [saveToLib, setSaveToLib] = React.useState(false); // (dayMode) salvar também como refeição-modelo
 
   const toggleMoment = (id) => setMoments((m) => m.includes(id) ? m.filter((x) => x !== id) : [...m, id]);
-  const addItem = (foodId) => { setItems((it) => [...it, { foodId, g: 100 }]); setPicking(false); setQuery(""); };
-  const setG = (i, g) => setItems((it) => it.map((x, j) => (j === i ? { ...x, g } : x)));
+  const addItem = (foodId) => {
+    const food = foods[foodId];
+    const hasPort = food && food.portions && food.portions.length;
+    // se tem porção, começa com 1 da primeira porção; senão 100 g
+    const it = hasPort ? { foodId, qty: 1, unit: food.portions[0].label, g: food.portions[0].g } : { foodId, qty: 100, unit: "g", g: 100 };
+    setItems((its) => [...its, it]);
+    setPicking(false); setQuery("");
+  };
+  const setItemQty = (i, patch) => setItems((its) => its.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const rmItem = (i) => setItems((it) => it.filter((_, j) => j !== i));
 
-  const draft = { name, moments, items: items.map((x) => ({ foodId: x.foodId, g: parseNum(x.g) || 0 })) };
+  const draft = { name, moments, items: items.map((x) => ({ foodId: x.foodId, g: parseNum(x.g) || 0, qty: x.qty, unit: x.unit })) };
   const totals = mealTotals(draft, foods);
 
   const save = () => {
@@ -1200,8 +1256,7 @@ function MealForm({ initial, foods, onSave, onDelete, onClose, dayMode, momentLa
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f2", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{food.name}</div>
                 <div style={{ fontSize: 11.5, color: "#7a7a82", marginTop: 2 }}>{Math.round((food.kcal || 0) * factor)} kcal · P{Math.round((food.p || 0) * factor)} C{Math.round((food.c || 0) * factor)} G{Math.round((food.f || 0) * factor)}</div>
               </div>
-              <input inputMode="decimal" value={it.g} onChange={(e) => setG(i, e.target.value)} style={{ ...textInput, width: 64, textAlign: "center" }} />
-              <span style={{ fontSize: 12, color: "#7a7a82" }}>g</span>
+              <QtyInput food={food} item={it} onChange={(patch) => setItemQty(i, patch)} />
               <button onClick={() => rmItem(i)} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Remover"><Icon.Trash width={15} height={15} /></button>
             </div>
           );
@@ -1444,8 +1499,7 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onAddCustomM
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
                               <span style={{ flex: 1, fontSize: 13, color: "#c0c0c8", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{food.name}</span>
-                              <input inputMode="decimal" value={it.g} onChange={(e) => onSetGrams(dayIdx, m.id, meal.id, i, parseNum(e.target.value) || 0)} style={{ ...textInput, width: 60, textAlign: "center", padding: "7px 6px" }} />
-                              <span style={{ fontSize: 12, color: "#7a7a82" }}>g</span>
+                              <QtyInput food={food} item={it} compact onChange={(patch) => onSetGrams(dayIdx, m.id, meal.id, i, patch)} />
                             </div>
                           );
                         })}
@@ -1718,7 +1772,7 @@ function HojeView({ profile, plan, foods, meals, planAddMeal, planAddCustomMeal,
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, paddingTop: i === 0 ? 12 : 8 }}>
                               <span style={{ fontSize: 14, color: "#e0e0e4", flex: 1, minWidth: 0 }}>{food.name}</span>
-                              <span style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f2", flexShrink: 0 }}>{it.g}<span style={{ fontSize: 11, color: "#7a7a82", fontWeight: 600 }}> g</span></span>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f2", flexShrink: 0 }}>{fmtQty(it, food)}</span>
                               <span style={{ fontSize: 11.5, color: "#7a7a82", flexShrink: 0, width: 52, textAlign: "right" }}>{Math.round((food.kcal || 0) * factor)} kcal</span>
                             </div>
                           );
@@ -2520,7 +2574,7 @@ function App() {
   // adiciona uma refeição avulsa montada na hora (não vem de modelo)
   const planAddCustomMeal = async (dayIdx, moment, mealData) => {
     const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
-    const copy = { id: uid("dm_"), name: mealData.name, fromMealId: mealData.fromMealId || null, items: (mealData.items || []).map((it) => ({ foodId: it.foodId, g: it.g })) };
+    const copy = { id: uid("dm_"), name: mealData.name, fromMealId: mealData.fromMealId || null, items: (mealData.items || []).map((it) => ({ foodId: it.foodId, g: it.g, qty: it.qty, unit: it.unit })) };
     next[dayIdx][moment] = [...(next[dayIdx][moment] || []), copy];
     await savePlan(next);
   };
@@ -2529,7 +2583,7 @@ function App() {
     const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
     next[dayIdx][moment] = (next[dayIdx][moment] || []).map((m) => {
       if (m.id !== copyId) return m;
-      return { id: m.id, name: mealData.name, fromMealId: mealData.fromMealId || null, items: (mealData.items || []).map((it) => ({ foodId: it.foodId, g: it.g })) };
+      return { id: m.id, name: mealData.name, fromMealId: mealData.fromMealId || null, items: (mealData.items || []).map((it) => ({ foodId: it.foodId, g: it.g, qty: it.qty, unit: it.unit })) };
     });
     await savePlan(next);
   };
@@ -2540,11 +2594,13 @@ function App() {
     await savePlan(next);
   };
   // ajusta os gramas de um item de uma refeição copiada (edição independente)
-  const planSetItemGrams = async (dayIdx, moment, copyId, itemIdx, grams) => {
+  const planSetItemGrams = async (dayIdx, moment, copyId, itemIdx, patch) => {
+    // patch pode ser um número (compat antigo) ou { qty, unit, g }
+    const p = (typeof patch === "number") ? { g: patch } : patch;
     const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
     next[dayIdx][moment] = (next[dayIdx][moment] || []).map((m) => {
       if (m.id !== copyId) return m;
-      const items = m.items.map((it, i) => (i === itemIdx ? { ...it, g: grams } : it));
+      const items = m.items.map((it, i) => (i === itemIdx ? { ...it, ...p } : it));
       return { ...m, items };
     });
     await savePlan(next);
