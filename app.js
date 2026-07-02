@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v28";
+const APP_VERSION = "v29";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -1541,6 +1541,118 @@ function SemanaView({ plan, foods, meals, profile, onAddMeal, onRemoveMeal, onSe
   );
 }
 
+// ============================================================
+// HOJE — resumo do dia atual (anel + macros) com ajuste inline
+// ============================================================
+// anel de macro: mostra consumido vs meta de um macronutriente
+function MacroMeter({ label, color, val, target }) {
+  const pct = target ? Math.min(100, Math.round((val / target) * 100)) : 0;
+  return (
+    <div style={{ flex: 1 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: color }}>{label}</span>
+        <span style={{ fontSize: 11.5, color: "#8a8a92" }}>{val}{target ? " / " + target : ""}<span style={{ fontSize: 10 }}>g</span></span>
+      </div>
+      <div style={{ height: 5, borderRadius: 3, background: "#1B2536", overflow: "hidden" }}>
+        <div style={{ width: pct + "%", height: "100%", background: color }} />
+      </div>
+    </div>
+  );
+}
+
+function HojeView({ profile, plan, foods, meals, planAddMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay }) {
+  const todayIdx = new Date().getDay(); // 0=domingo .. 6=sábado
+  const [planning, setPlanning] = React.useState(false);
+  const day = (plan && plan[todayIdx]) || emptyDay();
+  const totals = dayTotals(day, foods);
+  const target = computeTargets(profile);
+  const hasTarget = target && target.ok;
+  const count = MEAL_MOMENTS.reduce((s, m) => s + ((day[m.id] || []).length), 0);
+
+  const kcalPct = hasTarget ? Math.min(1, totals.kcal / target.kcal) : 0;
+  const remaining = hasTarget ? target.kcal - totals.kcal : 0;
+
+  return (
+    <div style={{ padding: "22px 18px 30px" }}>
+      <ModuleHeader eyebrow={"Nutrição · " + DAYS[todayIdx]} title="Hoje" right={
+        <button onClick={() => setPlanning(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: NG, border: "none", borderRadius: 8, padding: "8px 14px", color: "#062b20", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+          <Icon.Pencil width={15} height={15} /> Ajustar
+        </button>
+      } />
+
+      {!hasTarget ? (
+        <div style={{ ...card, padding: 18, marginBottom: 16, textAlign: "center" }}>
+          <div style={{ color: "#8a8a92", fontSize: 13.5, lineHeight: 1.5 }}>Pra ver seu progresso do dia, complete seus dados no Perfil: <strong style={{ color: "#b0b0b8" }}>{target ? target.missing.join(", ") : "dados"}</strong>.</div>
+        </div>
+      ) : (
+        <div style={{ ...card, padding: 22, marginBottom: 16 }}>
+          {/* anel de calorias */}
+          <div style={{ position: "relative", width: 160, height: 160, margin: "0 auto 18px" }}>
+            <Ring pct={kcalPct} accent={totals.kcal > target.kcal ? "#E0A23B" : NG} size={160} stroke={13} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 42, fontWeight: 700, lineHeight: 1 }}>{totals.kcal}</span>
+              <span style={{ fontSize: 12, color: "#8a8a92", fontWeight: 600 }}>de {target.kcal} kcal</span>
+              <span style={{ fontSize: 11.5, color: remaining >= 0 ? NG : "#E0A23B", fontWeight: 700, marginTop: 3 }}>{remaining >= 0 ? remaining + " restantes" : Math.abs(remaining) + " acima"}</span>
+            </div>
+          </div>
+          {/* macros */}
+          <div style={{ display: "flex", gap: 14 }}>
+            <MacroMeter label="Proteína" color={MACRO_COLORS.protein} val={totals.p} target={target.proteinG} />
+            <MacroMeter label="Carbo" color={MACRO_COLORS.carb} val={totals.c} target={target.carbG} />
+            <MacroMeter label="Gordura" color={MACRO_COLORS.fat} val={totals.f} target={target.fatG} />
+          </div>
+        </div>
+      )}
+
+      {/* refeições do dia (leitura) */}
+      {count === 0 ? (
+        <div style={{ ...card, padding: 26, textAlign: "center" }}>
+          <span style={{ color: NG, display: "inline-flex", marginBottom: 12 }}><Icon.Flame width={36} height={36} /></span>
+          <div style={{ fontSize: 14, color: "#8a8a92", lineHeight: 1.5, maxWidth: 260, margin: "0 auto 16px" }}>Você ainda não montou o cardápio de hoje. Toque em Ajustar pra adicionar refeições.</div>
+          <button onClick={() => setPlanning(true)} style={{ ...primaryBtn(NG), justifyContent: "center", margin: "0 auto" }}><Icon.Plus /> Montar o dia</button>
+        </div>
+      ) : (
+        MEAL_MOMENTS.map((m) => {
+          const list = day[m.id] || [];
+          if (!list.length) return null;
+          return (
+            <div key={m.id} style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#8a8a92", fontWeight: 700, marginBottom: 10 }}>{m.name}</div>
+              {list.map((meal) => {
+                const t = mealTotals(meal, foods);
+                return (
+                  <div key={meal.id} style={{ ...card, padding: "13px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#f0f0f2" }}>{meal.name}</div>
+                      <div style={{ fontSize: 12, color: "#8a8a92", marginTop: 2 }}><span style={{ color: NG, fontWeight: 700 }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })
+      )}
+
+      {planning && (
+        <DayPlanner
+          dayIdx={todayIdx}
+          day={day}
+          foods={foods}
+          meals={meals}
+          target={target}
+          onAddMeal={planAddMeal}
+          onRemoveMeal={planRemoveMeal}
+          onSetGrams={planSetItemGrams}
+          onCopyDay={planCopyDay}
+          onClear={planClearDay}
+          onClose={() => setPlanning(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, onSaveMeal, onDeleteMeal, plan, planAddMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay }) {
   if (tab === "nalimentos") {
     return <FoodsView foods={foods} onSave={onSaveFood} onDelete={onDeleteFood} />;
@@ -1551,8 +1663,11 @@ function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, o
   if (tab === "nsemana") {
     return <SemanaView plan={plan} foods={foods} meals={meals} profile={profile} onAddMeal={planAddMeal} onRemoveMeal={planRemoveMeal} onSetGrams={planSetItemGrams} onCopyDay={planCopyDay} onClear={planClearDay} />;
   }
+  if (tab === "nhoje") {
+    return <HojeView profile={profile} plan={plan} foods={foods} meals={meals} planAddMeal={planAddMeal} planRemoveMeal={planRemoveMeal} planSetItemGrams={planSetItemGrams} planCopyDay={planCopyDay} planClearDay={planClearDay} />;
+  }
   const screens = {
-    nhoje: { title: "Hoje", desc: "Aqui vai aparecer o resumo do dia: calorias, macros e refeições registradas." },
+    nhoje: { title: "Hoje", desc: "" },
     nsemana: { title: "Semana", desc: "Aqui vai aparecer a visão semanal: adesão à dieta e médias por dia." },
     ncardapio: { title: "Cardápio", desc: "Aqui você vai montar e gerenciar seus cardápios e refeições planejadas." },
     nalimentos: { title: "Alimentos", desc: "Aqui vai ficar sua base de alimentos, com calorias e informações nutricionais." },
@@ -1561,12 +1676,6 @@ function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, o
   return (
     <div style={{ padding: "22px 18px 30px" }}>
       <ModuleHeader eyebrow="Nutrição" title={s.title} />
-      {tab === "nhoje" && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#6a6a72", fontWeight: 700, marginBottom: 10 }}>Suas metas do dia</div>
-          <TargetsCard profile={profile} />
-        </div>
-      )}
       <div style={{ ...card, padding: 28, textAlign: "center" }}>
         <span style={{ color: "#10B981", display: "inline-flex", marginBottom: 12 }}><Icon.Flame width={40} height={40} /></span>
         <div style={{ fontSize: 14, color: "#8a8a92", lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>{s.desc}</div>
