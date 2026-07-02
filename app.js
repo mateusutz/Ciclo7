@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v31";
+const APP_VERSION = "v32";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -1308,7 +1308,7 @@ function CardapioView({ meals, foods, onSave, onDelete }) {
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f2", marginBottom: 3 }}>{meal.name}</div>
                   <div style={{ fontSize: 12, color: "#8a8a92" }}>{(meal.items || []).length} alimentos · <span style={{ color: NG, fontWeight: 700 }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
                 </div>
-                <Icon.Arrow />
+                <span style={{ color: "#8a8a92", display: "flex", flexShrink: 0 }}><Icon.Arrow /></span>
               </button>
             );
           })}
@@ -1503,7 +1503,7 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onAddCustomM
                 <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#f0f0f2" }}>Pegar do Cardápio</span>
                 <span style={{ display: "block", fontSize: 12.5, color: "#8a8a92", marginTop: 1 }}>Usar uma refeição-modelo pronta</span>
               </span>
-              <Icon.Arrow />
+              <span style={{ color: "#8a8a92", display: "flex", flexShrink: 0 }}><Icon.Arrow /></span>
             </button>
             <button onClick={() => { setBuilding({ moment: choosing.moment, replaceCopyId: choosing.replaceCopyId }); setChoosing(null); }} style={{ ...card, padding: 16, marginBottom: 14, display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer" }}>
               <span style={{ width: 42, height: 42, borderRadius: 11, background: NG + "22", color: NG, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.Plus width={20} height={20} /></span>
@@ -1511,7 +1511,7 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onAddCustomM
                 <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#f0f0f2" }}>Criar na hora</span>
                 <span style={{ display: "block", fontSize: 12.5, color: "#8a8a92", marginTop: 1 }}>Montar uma refeição só pra este dia</span>
               </span>
-              <Icon.Arrow />
+              <span style={{ color: "#8a8a92", display: "flex", flexShrink: 0 }}><Icon.Arrow /></span>
             </button>
             <button onClick={() => setChoosing(null)} style={{ width: "100%", padding: "12px", background: "transparent", color: "#9a9aa2", border: "1px solid #2A3344", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
           </div>
@@ -1580,11 +1580,11 @@ function SemanaView({ plan, foods, meals, profile, onAddMeal, onAddCustomMeal, o
         return (
           <button key={i} onClick={() => setOpenDay(i)} style={{ ...card, padding: 16, marginBottom: 8, width: "100%", textAlign: "left", cursor: "pointer", display: "block" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: count ? 10 : 0 }}>
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 19, fontWeight: 700, textTransform: "uppercase", flex: 1 }}>{dname}</span>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 19, fontWeight: 700, textTransform: "uppercase", flex: 1, color: "#f0f0f2" }}>{dname}</span>
               {count > 0
                 ? <span style={{ fontSize: 13, fontWeight: 700, color: NG }}>{totals.kcal} kcal</span>
                 : <span style={{ fontSize: 12.5, color: "#5a5a62" }}>vazio</span>}
-              <Icon.Arrow />
+              <span style={{ color: "#8a8a92", display: "flex", flexShrink: 0 }}><Icon.Arrow /></span>
             </div>
             {count > 0 && hasTarget && (
               <div style={{ height: 5, borderRadius: 3, background: "#1B2536", overflow: "hidden" }}>
@@ -3042,7 +3042,7 @@ function TodayView({ todayIdx, workout, sp, schedule, workouts, sessionProgress,
                           {w.items.length} exercícios{isScheduled ? " · previsto pra hoje" : ""}{wp.setsDone > 0 ? " · " + wp.setsDone + "/" + wp.setsTotal + " séries" : ""}
                         </span>
                       </span>
-                      <Icon.Arrow />
+                      <span style={{ color: "#8a8a92", display: "flex", flexShrink: 0 }}><Icon.Arrow /></span>
                     </button>
                   );
                 })}
@@ -4442,6 +4442,7 @@ const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; color: #f0f0f2; background: #0B0F19; }
+  button { color: inherit; font-family: inherit; }
   ::-webkit-scrollbar { width: 0; }
   button:focus-visible { outline: 2px solid var(--accent, #EF4444); outline-offset: 2px; }
   input:focus, textarea:focus, select:focus { border-color: var(--accent, #EF4444); }
