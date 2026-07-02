@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v33";
+const APP_VERSION = "v34";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -259,6 +259,13 @@ const mifflinStJeor = (kg, cm, age, sex) => {
   const c = sex === "m" ? 5 : sex === "f" ? -161 : -78;
   return base + c;
 };
+// TMB pela equação de Katch-McArdle: parte da massa magra (não usa idade/sexo).
+// Mais personalizada quando o % de gordura corporal é conhecido.
+// bodyFatPct em % (ex.: 18.5). TMB = 370 + 21.6 × massa_magra_kg
+const katchMcArdle = (kg, bodyFatPct) => {
+  const leanKg = kg * (1 - bodyFatPct / 100);
+  return 370 + 21.6 * leanKg;
+};
 
 // ajuste calórico por objetivo
 const GOAL_ADJ = { manter: 0, perder: -0.20, massa: 0.10 };
@@ -295,7 +302,12 @@ const computeTargets = (profile) => {
   if (!goal) missing.push("objetivo");
   if (missing.length) return { ok: false, missing };
 
-  const bmr = mifflinStJeor(kg, cm, age, sex);
+  // TMB: se há % de gordura válido (0 < bf < 100), usa Katch-McArdle
+  // (parte da massa magra real); senão, Mifflin-St Jeor.
+  const bf = parseNum(profile.bodyFat);
+  const useKatch = !isNaN(bf) && bf > 0 && bf < 100;
+  const bmr = useKatch ? katchMcArdle(kg, bf) : mifflinStJeor(kg, cm, age, sex);
+  const method = useKatch ? "katch" : "mifflin";
   const tdee = bmr * activityFactor(activity);
   let kcal = tdee * (1 + (GOAL_ADJ[goal] || 0));
   kcal = Math.max(kcal, bmr); // piso de segurança: nunca abaixo da TMB
@@ -317,7 +329,7 @@ const computeTargets = (profile) => {
   const fatG = Math.round(fatKcal / 9);
   const carbG = Math.round(Math.max(carbKcal, 0) / 4);
 
-  return { ok: true, bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, proteinG, fatG, carbG };
+  return { ok: true, method, bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, proteinG, fatG, carbG };
 };
 
 const ytId = (url) => {
@@ -1116,7 +1128,7 @@ function FoodsView({ foods, onSave, onDelete }) {
   return (
     <div style={{ padding: "22px 18px 30px" }}>
       <ModuleHeader eyebrow={"Nutrição · " + list.length + " alimentos"} title="Alimentos" right={
-        <button onClick={() => setEditing("new")} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10B981", border: "none", borderRadius: 8, padding: "8px 14px", color: "#062b20", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+        <button onClick={() => setEditing("new")} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10B981", border: "none", borderRadius: 8, padding: "8px 14px", color: onColor("#10B981"), fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
           <Icon.Plus /> Novo
         </button>
       } />
@@ -1233,7 +1245,7 @@ function MealForm({ initial, foods, onSave, onDelete, onClose, dayMode, momentLa
           {MEAL_MOMENTS.map((m) => {
             const on = moments.includes(m.id);
             return (
-              <button key={m.id} onClick={() => { toggleMoment(m.id); setError(""); }} style={{ padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (on ? NG : "#2E3A4D"), background: on ? NG : "transparent", color: on ? "#062b20" : "#9a9aa2" }}>{m.name}</button>
+              <button key={m.id} onClick={() => { toggleMoment(m.id); setError(""); }} style={{ padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (on ? NG : "#2E3A4D"), background: on ? NG : "transparent", color: on ? onColor(NG) : "#9a9aa2" }}>{m.name}</button>
             );
           })}
         </div>
@@ -1241,7 +1253,7 @@ function MealForm({ initial, foods, onSave, onDelete, onClose, dayMode, momentLa
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <span style={{ fontSize: 12, color: "#7a7a82", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Alimentos</span>
-          <button onClick={() => setPicking(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: NG, border: "none", borderRadius: 8, padding: "7px 12px", color: "#062b20", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}><Icon.Plus /> Adicionar</button>
+          <button onClick={() => setPicking(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: NG, border: "none", borderRadius: 8, padding: "7px 12px", color: onColor(NG), fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}><Icon.Plus /> Adicionar</button>
         </div>
 
         {items.length === 0 && <div style={{ ...card, padding: 18, textAlign: "center", color: "#7a7a82", fontSize: 13, marginBottom: 14 }}>Nenhum alimento ainda. Toque em Adicionar.</div>}
@@ -1340,7 +1352,7 @@ function CardapioView({ meals, foods, onSave, onDelete }) {
   return (
     <div style={{ padding: "22px 18px 30px" }}>
       <ModuleHeader eyebrow={"Nutrição · " + list.length + " refeições"} title="Cardápio" right={
-        <button onClick={() => setEditing("new")} style={{ display: "flex", alignItems: "center", gap: 6, background: NG, border: "none", borderRadius: 8, padding: "8px 14px", color: "#062b20", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+        <button onClick={() => setEditing("new")} style={{ display: "flex", alignItems: "center", gap: 6, background: NG, border: "none", borderRadius: 8, padding: "8px 14px", color: onColor(NG), fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
           <Icon.Plus /> Nova
         </button>
       } />
@@ -1594,7 +1606,7 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onAddCustomM
                 if (i === dayIdx) return null;
                 const on = copySel.includes(i);
                 return (
-                  <button key={i} onClick={() => setCopySel((s) => on ? s.filter((x) => x !== i) : [...s, i])} style={{ padding: "9px 13px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (on ? NG : "#2E3A4D"), background: on ? NG : "transparent", color: on ? "#062b20" : "#9a9aa2" }}>{d.slice(0, 3)}</button>
+                  <button key={i} onClick={() => setCopySel((s) => on ? s.filter((x) => x !== i) : [...s, i])} style={{ padding: "9px 13px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid " + (on ? NG : "#2E3A4D"), background: on ? NG : "transparent", color: on ? onColor(NG) : "#9a9aa2" }}>{d.slice(0, 3)}</button>
                 );
               })}
             </div>
@@ -1708,7 +1720,7 @@ function HojeView({ profile, plan, foods, meals, planAddMeal, planAddCustomMeal,
   return (
     <div style={{ padding: "22px 18px 30px" }}>
       <ModuleHeader eyebrow={"Nutrição · " + DAYS[todayIdx]} title="Hoje" right={
-        <button onClick={() => setPlanning(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: NG, border: "none", borderRadius: 8, padding: "8px 14px", color: "#062b20", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+        <button onClick={() => setPlanning(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: NG, border: "none", borderRadius: 8, padding: "8px 14px", color: onColor(NG), fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
           <Icon.Pencil width={15} height={15} /> Ajustar
         </button>
       } />
@@ -1890,7 +1902,7 @@ function TargetsCard({ profile, showHint }) {
 
       {showHint && (
         <div style={{ fontSize: 11.5, color: "#5a5a62", lineHeight: 1.5, marginTop: 14, paddingTop: 12, borderTop: "1px solid #1c1c22" }}>
-          Estimativa por Mifflin-St Jeor, fatores de atividade e faixas da ISSN/AMDR. São valores de referência, não prescrição — para um plano individual, procure um profissional.
+          Estimativa por {t.method === "katch" ? "Katch-McArdle (a partir do seu % de gordura)" : "Mifflin-St Jeor"}, fatores de atividade e faixas da ISSN/AMDR. São valores de referência, não prescrição — para um plano individual, procure um profissional.
         </div>
       )}
     </div>
@@ -1929,7 +1941,7 @@ function ProfileView({ profile, authUser, onSave, onAddWeight, onDeleteWeight, o
   const unit = prefs.unit || "kg";
   const KG_PER_LB = 0.45359237;
   const toDisplayWeight = (kg) => unit === "lb" ? +(kg / KG_PER_LB).toFixed(1) : kg;
-  const fromInputWeight = (val) => { const n = parseFloat(String(val).replace(",", ".")); if (!n) return null; return unit === "lb" ? +(n * KG_PER_LB).toFixed(2) : n; };
+  const fromInputWeight = (val) => { const n = parseNum(val); if (!n) return null; return unit === "lb" ? +(n * KG_PER_LB).toFixed(2) : n; };
 
   const age = (() => {
     if (!birth) return null;
@@ -2614,7 +2626,7 @@ function App() {
       MEAL_MOMENTS.forEach((m) => {
         dayCopy[m.id] = (source[m.id] || []).map((meal) => ({
           id: uid("dm_"), name: meal.name, fromMealId: meal.fromMealId,
-          items: meal.items.map((it) => ({ foodId: it.foodId, g: it.g })),
+          items: meal.items.map((it) => ({ foodId: it.foodId, g: it.g, qty: it.qty, unit: it.unit })),
         }));
       });
       next[toIdx] = dayCopy;
