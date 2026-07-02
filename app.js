@@ -15,7 +15,7 @@ const ACCENT_CHOICES = [
   { id: "ambar", color: "#F59E0B", name: "Âmbar" },
 ];
 const DEFAULT_ACCENT = "#EF4444";
-const APP_VERSION = "v29";
+const APP_VERSION = "v30";
 // acento ativo (mutável; atualizado a partir das preferências do usuário)
 let ACCENT = DEFAULT_ACCENT;
 const setAccentVar = (hex) => { ACCENT = (hex && hex[0] === "#") ? hex : DEFAULT_ACCENT; };
@@ -1126,7 +1126,7 @@ function FoodsView({ foods, onSave, onDelete }) {
 const NG = "#10B981"; // acento da Nutrição (verde)
 
 // formulário de criar/editar refeição-modelo
-function MealForm({ initial, foods, onSave, onDelete, onClose }) {
+function MealForm({ initial, foods, onSave, onDelete, onClose, dayMode, momentLabel }) {
   const isNew = !initial;
   const [name, setName] = React.useState(initial ? initial.name : "");
   const [moments, setMoments] = React.useState(initial ? [...(initial.moments || [])] : []);
@@ -1134,6 +1134,7 @@ function MealForm({ initial, foods, onSave, onDelete, onClose }) {
   const [picking, setPicking] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [error, setError] = React.useState("");
+  const [saveToLib, setSaveToLib] = React.useState(false); // (dayMode) salvar também como refeição-modelo
 
   const toggleMoment = (id) => setMoments((m) => m.includes(id) ? m.filter((x) => x !== id) : [...m, id]);
   const addItem = (foodId) => { setItems((it) => [...it, { foodId, g: 100 }]); setPicking(false); setQuery(""); };
@@ -1146,8 +1147,12 @@ function MealForm({ initial, foods, onSave, onDelete, onClose }) {
   const save = () => {
     if (!name.trim()) { setError("Dê um nome à refeição."); return; }
     if (!items.length) { setError("Adicione pelo menos um alimento."); return; }
-    if (!moments.length) { setError("Marque ao menos um momento do dia."); return; }
-    onSave({ ...(initial || {}), name: name.trim(), moments, items: draft.items });
+    if (!dayMode && !moments.length) { setError("Marque ao menos um momento do dia."); return; }
+    if (dayMode) {
+      onSave({ name: name.trim(), items: draft.items }, saveToLib);
+    } else {
+      onSave({ ...(initial || {}), name: name.trim(), moments, items: draft.items });
+    }
   };
 
   const list = Object.values(foods || {});
@@ -1159,13 +1164,14 @@ function MealForm({ initial, foods, onSave, onDelete, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "#0B0F19", zIndex: 50, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #1c1c22" }}>
         <button onClick={onClose} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Fechar"><Icon.X /></button>
-        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{isNew ? "Nova refeição" : "Editar refeição"}</span>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{dayMode ? ("Criar pra " + (momentLabel || "o dia")) : (isNew ? "Nova refeição" : "Editar refeição")}</span>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "18px" }}>
         <label style={labelStyle}>Nome da refeição</label>
         <input value={name} onChange={(e) => { setName(e.target.value); setError(""); }} placeholder="Ex.: Café reforçado" style={{ ...textInput, marginBottom: 16 }} />
 
+        {!dayMode && (<React.Fragment>
         <label style={labelStyle}>Momentos do dia</label>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
           {MEAL_MOMENTS.map((m) => {
@@ -1175,6 +1181,7 @@ function MealForm({ initial, foods, onSave, onDelete, onClose }) {
             );
           })}
         </div>
+        </React.Fragment>)}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <span style={{ fontSize: 12, color: "#7a7a82", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Alimentos</span>
@@ -1221,10 +1228,17 @@ function MealForm({ initial, foods, onSave, onDelete, onClose }) {
 
         {error && <div style={{ color: "#e36a5a", fontSize: 12.5, fontWeight: 600, margin: "12px 0 0" }}>{error}</div>}
 
-        <button onClick={save} style={{ ...primaryBtn(NG), width: "100%", justifyContent: "center", marginTop: 16 }}>
-          <Icon.Check /> {isNew ? "Criar refeição" : "Salvar alterações"}
+        {dayMode && (
+          <button onClick={() => setSaveToLib((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 16, padding: "12px 14px", background: "transparent", border: "1px solid #2A3344", borderRadius: 10, cursor: "pointer", textAlign: "left" }}>
+            <span style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, border: "2px solid " + (saveToLib ? NG : "#3a3a42"), background: saveToLib ? NG : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{saveToLib ? <Icon.Check width={12} height={12} /> : null}</span>
+            <span style={{ fontSize: 13.5, color: "#c0c0c8", fontWeight: 600 }}>Salvar também no Cardápio como refeição-modelo</span>
+          </button>
+        )}
+
+        <button onClick={save} style={{ ...primaryBtn(NG), width: "100%", justifyContent: "center", marginTop: dayMode ? 10 : 16 }}>
+          <Icon.Check /> {dayMode ? "Adicionar ao dia" : (isNew ? "Criar refeição" : "Salvar alterações")}
         </button>
-        {!isNew && onDelete && (
+        {!dayMode && !isNew && onDelete && (
           <button onClick={() => onDelete(initial.id)} style={{ width: "100%", marginTop: 8, padding: "12px", background: "transparent", color: "#e36a5a", border: "1px solid #3a2a2a", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
             Excluir refeição
           </button>
@@ -1336,8 +1350,10 @@ function MetaBar({ totals, target }) {
 }
 
 // editor de um dia: momentos, refeições copiadas, edição de gramas
-function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal, onSetGrams, onCopyDay, onClear, onClose }) {
-  const [picking, setPicking] = React.useState(null); // momento aberto pra escolher modelo
+function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onAddCustomMeal, onReplaceMeal, onRemoveMeal, onSetGrams, onCopyDay, onClear, onClose, onSaveModel }) {
+  const [choosing, setChoosing] = React.useState(null); // { moment, replaceCopyId } — escolher origem
+  const [picking, setPicking] = React.useState(null); // { moment, replaceCopyId } — lista do cardápio
+  const [building, setBuilding] = React.useState(null); // { moment, replaceCopyId } — montar na hora
   const [expanded, setExpanded] = React.useState({}); // copyId -> bool (mostrar itens)
   const [copyTo, setCopyTo] = React.useState(false); // tela de replicar
   const [copySel, setCopySel] = React.useState([]); // dias destino selecionados
@@ -1347,6 +1363,25 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal
 
   // modelos disponíveis pra um momento (refeições marcadas pra ele)
   const modelsFor = (moment) => Object.values(meals || {}).filter((m) => (m.moments || []).includes(moment)).sort((a, b) => a.name.localeCompare(b.name));
+
+  // aplica a escolha do cardápio (adiciona ou substitui)
+  const pickModel = (model) => {
+    const { moment, replaceCopyId } = picking;
+    if (replaceCopyId) onReplaceMeal(dayIdx, moment, replaceCopyId, { name: model.name, fromMealId: model.id, items: model.items });
+    else onAddMeal(dayIdx, moment, model);
+    setPicking(null);
+  };
+
+  // aplica a refeição montada na hora (adiciona ou substitui), com opção de virar modelo
+  const applyBuilt = async (mealData, saveToLib) => {
+    const { moment, replaceCopyId } = building;
+    if (saveToLib && onSaveModel) {
+      await onSaveModel({ name: mealData.name, moments: [moment], items: mealData.items });
+    }
+    if (replaceCopyId) await onReplaceMeal(dayIdx, moment, replaceCopyId, mealData);
+    else await onAddCustomMeal(dayIdx, moment, mealData);
+    setBuilding(null);
+  };
 
   const doCopy = async () => {
     if (!copySel.length) { setCopyTo(false); return; }
@@ -1381,7 +1416,7 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal
             <div key={m.id} style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <span style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#8a8a92", fontWeight: 700 }}>{m.name}</span>
-                <button onClick={() => setPicking(m.id)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: NG, fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}><Icon.Plus /> Adicionar</button>
+                <button onClick={() => setChoosing({ moment: m.id, replaceCopyId: null })} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: NG, fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}><Icon.Plus /> Adicionar</button>
               </div>
 
               {list.length === 0 && <div style={{ fontSize: 12.5, color: "#5a5a62", padding: "6px 0 2px" }}>Nenhuma refeição.</div>}
@@ -1397,6 +1432,7 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal
                         <div style={{ fontSize: 12, color: "#8a8a92", marginTop: 2 }}><span style={{ color: NG, fontWeight: 700 }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
                       </button>
                       <button onClick={() => toggleExp(meal.id)} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Ajustar">{isExp ? <Icon.Up /> : <Icon.Down />}</button>
+                      <button onClick={() => setChoosing({ moment: m.id, replaceCopyId: meal.id })} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Trocar"><Icon.Swap width={15} height={15} /></button>
                       <button onClick={() => onRemoveMeal(dayIdx, m.id, meal.id)} style={{ ...iconBtn, color: "#6a6a72" }} aria-label="Remover"><Icon.Trash width={15} height={15} /></button>
                     </div>
                     {isExp && (
@@ -1430,14 +1466,14 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal
         <div style={{ position: "fixed", inset: 0, background: "#0B0F19", zIndex: 60, display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #1c1c22" }}>
             <button onClick={() => setPicking(null)} style={{ ...iconBtn, color: "#9a9aa2" }} aria-label="Fechar"><Icon.X /></button>
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{momentName(picking)}</span>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}>{momentName(picking.moment)}</span>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
-            <div style={{ fontSize: 12.5, color: "#8a8a92", marginBottom: 14 }}>Escolha uma refeição-modelo do Cardápio pra adicionar.</div>
-            {modelsFor(picking).map((model) => {
+            <div style={{ fontSize: 12.5, color: "#8a8a92", marginBottom: 14 }}>{picking.replaceCopyId ? "Escolha a refeição-modelo que vai substituir esta." : "Escolha uma refeição-modelo do Cardápio pra adicionar."}</div>
+            {modelsFor(picking.moment).map((model) => {
               const t = mealTotals(model, foods);
               return (
-                <button key={model.id} onClick={() => { onAddMeal(dayIdx, picking, model); setPicking(null); }} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", border: "1px solid #1c2e26" }}>
+                <button key={model.id} onClick={() => pickModel(model)} style={{ ...card, padding: 14, marginBottom: 8, display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer", border: "1px solid #1c2e26" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f2" }}>{model.name}</div>
                     <div style={{ fontSize: 11.5, color: "#7a7a82", marginTop: 2 }}><span style={{ color: NG }}>{t.kcal} kcal</span> · P{t.p} C{t.c} G{t.f}</div>
@@ -1446,13 +1482,51 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal
                 </button>
               );
             })}
-            {modelsFor(picking).length === 0 && (
+            {modelsFor(picking.moment).length === 0 && (
               <div style={{ ...card, padding: 22, textAlign: "center", color: "#8a8a92", fontSize: 13, lineHeight: 1.5 }}>
-                Nenhuma refeição-modelo pra {momentName(picking).toLowerCase()} ainda. Crie uma na aba Cardápio e marque o momento "{momentName(picking)}".
+                Nenhuma refeição-modelo pra {momentName(picking.moment).toLowerCase()} ainda. Você pode criar uma na hora ou montá-la na aba Cardápio.
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {/* escolha de origem: cardápio ou criar na hora */}
+      {choosing && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: "#10151f", borderRadius: "16px 16px 0 0", width: "100%", padding: 20, borderTop: "1px solid #2A3344" }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{choosing.replaceCopyId ? "Trocar refeição" : "Adicionar refeição"}</div>
+            <div style={{ fontSize: 12.5, color: "#8a8a92", marginBottom: 18 }}>{momentName(choosing.moment)}</div>
+            <button onClick={() => { setPicking({ moment: choosing.moment, replaceCopyId: choosing.replaceCopyId }); setChoosing(null); }} style={{ ...card, padding: 16, marginBottom: 10, display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer" }}>
+              <span style={{ width: 42, height: 42, borderRadius: 11, background: NG + "22", color: NG, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.Book width={20} height={20} /></span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#f0f0f2" }}>Pegar do Cardápio</span>
+                <span style={{ display: "block", fontSize: 12.5, color: "#8a8a92", marginTop: 1 }}>Usar uma refeição-modelo pronta</span>
+              </span>
+              <Icon.Arrow />
+            </button>
+            <button onClick={() => { setBuilding({ moment: choosing.moment, replaceCopyId: choosing.replaceCopyId }); setChoosing(null); }} style={{ ...card, padding: 16, marginBottom: 14, display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer" }}>
+              <span style={{ width: 42, height: 42, borderRadius: 11, background: NG + "22", color: NG, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon.Plus width={20} height={20} /></span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#f0f0f2" }}>Criar na hora</span>
+                <span style={{ display: "block", fontSize: 12.5, color: "#8a8a92", marginTop: 1 }}>Montar uma refeição só pra este dia</span>
+              </span>
+              <Icon.Arrow />
+            </button>
+            <button onClick={() => setChoosing(null)} style={{ width: "100%", padding: "12px", background: "transparent", color: "#9a9aa2", border: "1px solid #2A3344", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* montar refeição na hora */}
+      {building && (
+        <MealForm
+          dayMode
+          momentLabel={momentName(building.moment)}
+          foods={foods}
+          onSave={applyBuilt}
+          onClose={() => setBuilding(null)}
+        />
       )}
 
       {/* replicar dia */}
@@ -1482,7 +1556,7 @@ function DayPlanner({ dayIdx, day, foods, meals, target, onAddMeal, onRemoveMeal
 }
 
 // visão geral da semana: 7 dias com total e comparação com a meta
-function SemanaView({ plan, foods, meals, profile, onAddMeal, onRemoveMeal, onSetGrams, onCopyDay, onClear }) {
+function SemanaView({ plan, foods, meals, profile, onAddMeal, onAddCustomMeal, onReplaceMeal, onRemoveMeal, onSetGrams, onCopyDay, onClear, onSaveModel }) {
   const [openDay, setOpenDay] = React.useState(null);
   const target = computeTargets(profile);
   const hasTarget = target && target.ok;
@@ -1530,6 +1604,9 @@ function SemanaView({ plan, foods, meals, profile, onAddMeal, onRemoveMeal, onSe
           meals={meals}
           target={target}
           onAddMeal={onAddMeal}
+          onAddCustomMeal={onAddCustomMeal}
+          onReplaceMeal={onReplaceMeal}
+          onSaveModel={onSaveModel}
           onRemoveMeal={onRemoveMeal}
           onSetGrams={onSetGrams}
           onCopyDay={onCopyDay}
@@ -1560,7 +1637,7 @@ function MacroMeter({ label, color, val, target }) {
   );
 }
 
-function HojeView({ profile, plan, foods, meals, planAddMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay }) {
+function HojeView({ profile, plan, foods, meals, planAddMeal, planAddCustomMeal, planReplaceMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay, onSaveModel }) {
   const todayIdx = new Date().getDay(); // 0=domingo .. 6=sábado
   const [planning, setPlanning] = React.useState(false);
   const day = (plan && plan[todayIdx]) || emptyDay();
@@ -1642,6 +1719,9 @@ function HojeView({ profile, plan, foods, meals, planAddMeal, planRemoveMeal, pl
           meals={meals}
           target={target}
           onAddMeal={planAddMeal}
+          onAddCustomMeal={planAddCustomMeal}
+          onReplaceMeal={planReplaceMeal}
+          onSaveModel={onSaveModel}
           onRemoveMeal={planRemoveMeal}
           onSetGrams={planSetItemGrams}
           onCopyDay={planCopyDay}
@@ -1653,7 +1733,7 @@ function HojeView({ profile, plan, foods, meals, planAddMeal, planRemoveMeal, pl
   );
 }
 
-function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, onSaveMeal, onDeleteMeal, plan, planAddMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay }) {
+function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, onSaveMeal, onDeleteMeal, plan, planAddMeal, planAddCustomMeal, planReplaceMeal, planRemoveMeal, planSetItemGrams, planCopyDay, planClearDay }) {
   if (tab === "nalimentos") {
     return <FoodsView foods={foods} onSave={onSaveFood} onDelete={onDeleteFood} />;
   }
@@ -1661,10 +1741,10 @@ function NutritionView({ tab, profile, foods, onSaveFood, onDeleteFood, meals, o
     return <CardapioView meals={meals} foods={foods} onSave={onSaveMeal} onDelete={onDeleteMeal} />;
   }
   if (tab === "nsemana") {
-    return <SemanaView plan={plan} foods={foods} meals={meals} profile={profile} onAddMeal={planAddMeal} onRemoveMeal={planRemoveMeal} onSetGrams={planSetItemGrams} onCopyDay={planCopyDay} onClear={planClearDay} />;
+    return <SemanaView plan={plan} foods={foods} meals={meals} profile={profile} onAddMeal={planAddMeal} onAddCustomMeal={planAddCustomMeal} onReplaceMeal={planReplaceMeal} onSaveModel={onSaveMeal} onRemoveMeal={planRemoveMeal} onSetGrams={planSetItemGrams} onCopyDay={planCopyDay} onClear={planClearDay} />;
   }
   if (tab === "nhoje") {
-    return <HojeView profile={profile} plan={plan} foods={foods} meals={meals} planAddMeal={planAddMeal} planRemoveMeal={planRemoveMeal} planSetItemGrams={planSetItemGrams} planCopyDay={planCopyDay} planClearDay={planClearDay} />;
+    return <HojeView profile={profile} plan={plan} foods={foods} meals={meals} planAddMeal={planAddMeal} planAddCustomMeal={planAddCustomMeal} planReplaceMeal={planReplaceMeal} onSaveModel={onSaveMeal} planRemoveMeal={planRemoveMeal} planSetItemGrams={planSetItemGrams} planCopyDay={planCopyDay} planClearDay={planClearDay} />;
   }
   const screens = {
     nhoje: { title: "Hoje", desc: "" },
@@ -2415,6 +2495,22 @@ function App() {
     next[dayIdx][moment] = [...(next[dayIdx][moment] || []), copy];
     await savePlan(next);
   };
+  // adiciona uma refeição avulsa montada na hora (não vem de modelo)
+  const planAddCustomMeal = async (dayIdx, moment, mealData) => {
+    const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
+    const copy = { id: uid("dm_"), name: mealData.name, fromMealId: mealData.fromMealId || null, items: (mealData.items || []).map((it) => ({ foodId: it.foodId, g: it.g })) };
+    next[dayIdx][moment] = [...(next[dayIdx][moment] || []), copy];
+    await savePlan(next);
+  };
+  // substitui uma refeição existente (por modelo ou custom) mantendo a posição
+  const planReplaceMeal = async (dayIdx, moment, copyId, mealData) => {
+    const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
+    next[dayIdx][moment] = (next[dayIdx][moment] || []).map((m) => {
+      if (m.id !== copyId) return m;
+      return { id: m.id, name: mealData.name, fromMealId: mealData.fromMealId || null, items: (mealData.items || []).map((it) => ({ foodId: it.foodId, g: it.g })) };
+    });
+    await savePlan(next);
+  };
   // remove uma refeição (pelo id da cópia) de um momento/dia
   const planRemoveMeal = async (dayIdx, moment, copyId) => {
     const next = { ...plan, [dayIdx]: { ...(plan[dayIdx] || emptyDay()) } };
@@ -2601,7 +2697,7 @@ function App() {
             appVersion={APP_VERSION}
           />
         ) : module === "nutricao" ? (
-          <NutritionView tab={nutriTab} profile={profile} foods={foods} onSaveFood={saveFood} onDeleteFood={deleteFood} meals={meals} onSaveMeal={saveMeal} onDeleteMeal={deleteMeal} plan={plan} planAddMeal={planAddMeal} planRemoveMeal={planRemoveMeal} planSetItemGrams={planSetItemGrams} planCopyDay={planCopyDay} planClearDay={planClearDay} />
+          <NutritionView tab={nutriTab} profile={profile} foods={foods} onSaveFood={saveFood} onDeleteFood={deleteFood} meals={meals} onSaveMeal={saveMeal} onDeleteMeal={deleteMeal} plan={plan} planAddMeal={planAddMeal} planAddCustomMeal={planAddCustomMeal} planReplaceMeal={planReplaceMeal} planRemoveMeal={planRemoveMeal} planSetItemGrams={planSetItemGrams} planCopyDay={planCopyDay} planClearDay={planClearDay} />
         ) : activeWorkout && getWorkout(activeWorkout) ? (
           <SessionDetail
             sessionKey={activeWorkout}
